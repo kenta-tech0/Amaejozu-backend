@@ -18,6 +18,8 @@
 "vscode": {
     "extensions": [
     "ms-python.python",
+    "ms-python.vscode-pylance",
+    "streetsidesoftware.code-spell-checker",
     "charliermarsh.ruff",
     "mhutchie.git-graph",
     "donjayamanne.githistory",
