@@ -1,0 +1,70 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/docker-existing-dockerfile
+{
+"name": "FastAPI Dev Container",
+"build": {
+    // Sets the run context to one level up instead of the .devcontainer folder.
+    "context": "..",
+    // Update the 'dockerFile' property if you aren't using the standard 'Dockerfile' filename.
+    "dockerfile": "../Dockerfile"
+},
+"features": {
+// Microsoftが提供する一般的な開発ツールをインストールする公式Feature
+"ghcr.io/devcontainers/features/common-utils:2": {
+    // Zshをインストールし、デフォルトのシェルにする
+    "installZsh": true,
+    // Oh My Zsh (ターミナルをリッチにするフレームワーク) をインストール
+    "installOhMyZsh": true,
+    // ユーザー名をvscodeから変更しない (デフォルトのまま)
+    "username": "vscode",
+    "userUid": "automatic",
+    "userGid": "automatic",
+    // Zshをデフォルトシェルとして設定
+"configureZshAsDefaultShell": true
+}
+},
+  // 開発を便利にするための設定
+"customizations": {
+    "vscode": {
+      // コンテナ内で有効にするVS Code拡張機能
+    "extensions": [
+        // --- 基本セット ---
+        "ms-python.python",
+        "charliermarsh.ruff",
+        // --- Git関連 (チームで統一) ---
+        "mhutchie.git-graph", // SourceTreeを表示
+        "donjayamanne.githistory", // ファイルのGit履歴を表示
+        // --- 開発効率化 ---
+        "github.vscode-github-actions", // GitHub Actionsのワークフローを支援
+        "gruntfuggly.todo-tree", // コード内のTODOコメントをツリー表示
+        "christian-kohler.path-intellisense", // ファイルパスを補完
+        "oderwat.indent-rainbow", // インデントを色付けして見やすくする
+        "shardulm94.trailing-spaces", // 不要な末尾スペースを可視化・削除
+        // --- Markdown編集用 ---
+        "yzhang.markdown-all-in-one", // Markdown編集のオールインワンツール
+        "davidanson.vscode-markdownlint", // Markdownの品質をチェック
+        // --- データベース (オプション) ---
+        "qwtel.sqlite-viewer" // SQLiteの内容表示
+    ],
+      // コンテナ内でのみ有効にしたい設定
+    "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        // Ruffをフォーマッターとして設定し、保存時に自動フォーマット
+        "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.formatOnSave": true
+        }
+    }
+    }
+},
+// コンテナのポート8000をホストPCに転送
+"forwardPorts": [
+8000
+],
+// コンテナ作成後に一度だけ実行されるコマンド
+// ここで依存関係をインストールする
+"postCreateCommand": "pip install -r requirements.txt",
+// VS Codeがコンテナに接続するたびに、開発サーバーを自動で起動する
+"postAttachCommand": "uvicorn main:app --host 0.0.0.0 --reload",
+"remoteUser": "vscode"
+}
