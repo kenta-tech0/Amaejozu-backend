@@ -2,11 +2,28 @@
 
 ## Development Setup
 
+### 前提条件
+
+以下のツールがインストールされている必要があります：
+
+- Docker Desktop
+- Git
+- テキストエディタ（VS Code推奨）
+- VS Code拡張機能: Visual Studio Codeを開き、拡張機能マーケットプレイスからDev Containers (ID: ms-vscode-remote.remote-containers) をインストールします。
 This project uses Dev Containers.
 
-1. Clone this repository.
-2. Open the folder in VS Code.
-3. Click "Reopen in Container" when prompted.
+### 開発コンテナの起動
+
+1. クローンしたプロジェクトフォルダをVS Codeで開きます。
+2. 右下に表示される「**コンテナーで再度開きます (Reopen in Container)**」ボタンをクリックします。
+3. 初回起動時は、コンテナイメージのビルドに数分かかります。
+4. フロントエンドで「package.jsonが存在しない」などのエラーが出て初回ビルドがうまくいかない場合
+    1. ファイルの所有者がリモートユーザー（vscode）ではない場合に起こることがある
+    確認方法: 開発コンテナ内のターミナルで、`ls -al` した時の3,4列目を見て、`vscode vscode` になっていなければ適切な権限が付与されていない可能性がある
+    （参考リンク: [ls -laで表示される内容を完全に理解する](https://qiita.com/devmatsuko/items/dfc92f98b83b7ac175a4)）
+        
+    2. 開発コンテナ内のターミナルで、フォルダ内の全ファイルの所有者をvscodeに書き換えるとうまく進むことがある
+    `sudo chown -R vscode:vscode .`
 
 # 化粧品価格比較アプリケーション（Amaejozu）
 
