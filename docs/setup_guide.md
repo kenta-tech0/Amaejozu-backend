@@ -28,21 +28,7 @@ git clone [backend-repo-url] Amaejozu-backend
 
 ---
 
-### ステップ2: Dockerネットワーク作成
-
-```bash
-# 共有ネットワーク作成(1回だけ)
-docker network create amaejozu-network
-
-# 確認
-docker network ls | grep amaejozu
-```
-
-✅ `amaejozu-network` が表示されればOK
-
----
-
-### ステップ3: 環境変数設定
+### ステップ2: 環境変数設定
 
 #### フロントエンド
 
