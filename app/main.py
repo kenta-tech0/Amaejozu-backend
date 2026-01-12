@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from database import get_db, engine, Base
+from app.database import get_db, engine, Base
 
 # ログ設定
 logging.basicConfig(level=logging.INFO)
@@ -62,7 +62,7 @@ async def root():
 
 
 # ヘルスチェックエンドポイント
-@app.get("/api/health")
+@app.get("/app/api/health")
 async def health_check():
     return {
         "status": "ok",
@@ -72,7 +72,7 @@ async def health_check():
     }
 
 
-@app.get("/api/db/health")
+@app.get("/app/api/db/health")
 async def db_health_check(db: Session = Depends(get_db)):
     """データベース接続のエンドポイント
 
@@ -96,7 +96,7 @@ async def db_health_check(db: Session = Depends(get_db)):
         return {"status": "error", "message": str(e)}
 
 
-@app.get("/api/db/tables")
+@app.get("/app/api/db/tables")
 async def list_tables(db: Session = Depends(get_db)):
     """
     データベース内のテーブル一覧を取得

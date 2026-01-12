@@ -62,7 +62,7 @@ def test_connection():
         print("🎉 接続テスト成功！")
         print()
         print("次のステップ:")
-        print("  2. ブラウザで確認: http://localhost:8000/api/db/health")
+        print("  2. ブラウザで確認: http://localhost:8000/app/api/db/health")
 
         return True
 

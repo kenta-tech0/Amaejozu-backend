@@ -21,10 +21,6 @@
 ### ステップ1: リポジトリクローン
 
 ```bash
-# 作業用ディレクトリ作成
-mkdir ~/Projects/amaejozu-project
-cd ~/Projects/amaejozu-project
-
 # リポジトリクローン
 git clone [frontend-repo-url] Amaejozu-frontend
 git clone [backend-repo-url] Amaejozu-backend
@@ -51,8 +47,6 @@ docker network ls | grep amaejozu
 #### フロントエンド
 
 ```bash
-cd Amaejozu-frontend
-
 # テンプレートをコピー
 cp .env.example .env.local
 
@@ -64,14 +58,9 @@ cat .env.local
 #### バックエンド
 
 ```bash
-cd Amaejozu-backend
-
 # テンプレートをコピー
 cp .env.example .env
 
-# 認証情報を設定(Week 1ではAzure MySQL接続情報のみ)
-code .env
-```
 
 ### ステップ4: Dev Container起動
 
