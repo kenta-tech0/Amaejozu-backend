@@ -137,7 +137,7 @@ docker rm -f frontend backend
 ### 困ったら
 
 1. **このドキュメントのトラブルシューティング確認**
-2. **Slack #techチャンネルで質問**
+2. **Slackで質問**
 
 -
 
