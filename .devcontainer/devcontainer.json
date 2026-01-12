@@ -43,7 +43,7 @@
 },
 "forwardPorts": [8000],
 "postCreateCommand": "pip install -r requirements.txt",
-"postAttachCommand": "uvicorn main:app --host 0.0.0.0 --reload",
+"postAttachCommand": "uvicorn app.main:app --host 0.0.0.0 --reload",
 "remoteUser": "vscode",
 "runArgs": [
 "--network=amaejozu-network",
