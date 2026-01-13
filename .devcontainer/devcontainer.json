@@ -12,8 +12,16 @@
     "userUid": "automatic",
     "userGid": "automatic",
     "configureZshAsDefaultShell": true
+},
+"ghcr.io/devcontainers/features/node:1": {
+    "version": "22",
+    "nodeGypDependencies": true,
+    "installYarnUsingApt": false
 }
 },
+"mounts": [
+"source=${localEnv:HOME}${localEnv:USERPROFILE}/.claude,target=/home/vscode/.claude,type=bind,consistency=cached"
+],
 "customizations": {
 "vscode": {
     "extensions": [
@@ -37,12 +45,13 @@
     "[python]": {
         "editor.defaultFormatter": "charliermarsh.ruff",
         "editor.formatOnSave": true
-    }
+    },
+    "terminal.integrated.defaultProfile.linux": "zsh"
     }
 }
 },
 "forwardPorts": [8000],
-"postCreateCommand": "pip install -r requirements.txt",
+"postCreateCommand": "pip install -r requirements.txt && npm install -g @anthropic-ai/claude-code@1.0.37",
 "postAttachCommand": "uvicorn app.main:app --host 0.0.0.0 --reload",
 "remoteUser": "vscode"
 }
