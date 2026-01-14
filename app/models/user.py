@@ -1,65 +1,52 @@
-from sqlalchemy import Column, String, Boolen, Datetime
-from sqlalchemy.dialects.mysql import BIGINT
+"""
+User Model - ユーザーテーブル
+"""
+from datetime import datetime
+from typing import Optional, TYPE_CHECKING
+from sqlalchemy import String, Boolean, DateTime
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
-from app.database import Base
+
+from .base import Base
+
+if TYPE_CHECKING:
+    from .brand_follow import BrandFollow
+    from .watchlist import Watchlist
+    from .notification import Notification
+    from .user_interest import UserInterest
+
 
 class User(Base):
-    __tablename__ = "useres"
+    """ユーザーテーブル"""
+    __tablename__ = "users"
 
-    id = Column(
-        BIGINT(unsigned=True),
-        primary_key=True,
-        autoincrement=True,
-        comment="ユーザーID"
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    nickname: Mapped[str] = mapped_column(String(100), nullable=False)
+    device_token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    push_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    email_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    email = Column(
-        String(225),
-        unique=True,
-        nullable=False,
-        index=True,
-        comment="メールアドレス"
+    # Relationships
+    brand_follows: Mapped[list["BrandFollow"]] = relationship(
+        "BrandFollow",
+        back_populates="user",
+        cascade="all, delete-orphan"
     )
-
-    user_name = Column(
-        String(225),
-        nullable=False,
-        comment="ユーザー名"
+    watchlists: Mapped[list["Watchlist"]] = relationship(
+        "Watchlist",
+        back_populates="user",
+        cascade="all, delete-orphan"
     )
-
-    device_token = Column(
-        String(225),
-        nullable=True,
-        comment="プッシュ通知用デバイストークン"
+    notifications: Mapped[list["Notification"]] = relationship(
+        "Notification",
+        back_populates="user",
+        cascade="all, delete-orphan"
     )
-    push_enabled = Column(
-        Boolen,
-        default=True,
-        nullable=False,
-        comment="プッシュ通知ON/OFF"
+    user_interests: Mapped[list["UserInterest"]] = relationship(
+        "UserInterest",
+        back_populates="user",
+        cascade="all, delete-orphan"
     )
-
-    email_enabled = Column(
-        Boolen,
-        default=True,
-        nullable=False,
-        comment="メール通知ON/OFF"
-    )
-
-    created_at = Column(
-        Datetime,
-        nullable=False,
-        server_default=func.now(),
-        comment="作成日時"
-    )
-
-    updated_at = Column(
-        Datetime,
-        nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
-        comment="更新日時"
-    )
-
-    def __repr__(self):
-        return f"<User(id={self.id}, email='{self.email}', user_name='{self.user_name},')"
