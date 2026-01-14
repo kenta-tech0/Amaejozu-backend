@@ -11,6 +11,7 @@ from .base import Base
 
 if TYPE_CHECKING:
     from .watchlist import Watchlist
+    from .notification_history import Notification
 
 
 class Alert(Base):
@@ -28,3 +29,8 @@ class Alert(Base):
 
     # Relationships
     watchlist: Mapped["Watchlist"] = relationship("Watchlist", back_populates="alerts")
+    notifications: Mapped[list["Notification"]] = relationship(
+        "Notification",
+        back_populates="alert",
+        cascade="all, delete-orphan"
+    )

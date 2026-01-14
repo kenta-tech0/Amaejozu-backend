@@ -16,7 +16,7 @@ from .product import Product
 from .price_history import PriceHistory
 from .watchlist import Watchlist
 from .alert import Alert
-from .notification import Notification
+from .notification_history import Notification
 from .brand_follow import BrandFollow
 from .user_interest import UserInterest
 

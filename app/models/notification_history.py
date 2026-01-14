@@ -30,4 +30,4 @@ class Notification(Base):
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="notifications")
-    alert: Mapped["Alert"] = relationship("Alert")
+    alert: Mapped["Alert"] = relationship("Alert", back_populates="notifications")

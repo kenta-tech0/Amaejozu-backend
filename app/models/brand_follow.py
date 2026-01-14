@@ -3,7 +3,7 @@ BrandFollow Model - ブランドフォローテーブル
 """
 from datetime import datetime
 from typing import TYPE_CHECKING
-from sqlalchemy import String, DateTime, ForeignKey
+from sqlalchemy import String, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 class BrandFollow(Base):
     """ブランドフォローテーブル"""
     __tablename__ = "brand_follows"
+    __table_args__ = (UniqueConstraint("user_id", "brand_id", name="uq_user_brand"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)

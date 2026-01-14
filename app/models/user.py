@@ -12,7 +12,7 @@ from .base import Base
 if TYPE_CHECKING:
     from .brand_follow import BrandFollow
     from .watchlist import Watchlist
-    from .notification import Notification
+    from .notification_history import Notification
     from .user_interest import UserInterest
 
 
