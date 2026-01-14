@@ -3,7 +3,7 @@ Watchlist Model - アイテムウォッチテーブル (ウォッチリスト)
 """
 from datetime import datetime
 from typing import Optional, TYPE_CHECKING
-from sqlalchemy import String, Integer, Boolean, DateTime, ForeignKey
+from sqlalchemy import String, Integer, Boolean, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 class Watchlist(Base):
     """アイテムウォッチテーブル (ウォッチリスト)"""
     __tablename__ = "watchlists"
+    __table_args__ = (UniqueConstraint("user_id", "product_id", name="uq_user_product"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)

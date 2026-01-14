@@ -3,7 +3,7 @@ UserInterest Model - ユーザー興味テーブル
 """
 from datetime import datetime
 from typing import TYPE_CHECKING
-from sqlalchemy import String, DateTime, ForeignKey
+from sqlalchemy import String, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 class UserInterest(Base):
     """ユーザー興味テーブル"""
     __tablename__ = "user_interests"
+    __table_args__ = (UniqueConstraint("user_id", "category_id", name="uq_user_category"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
