@@ -51,7 +51,7 @@
 }
 },
 "forwardPorts": [8000],
-"postCreateCommand": "pip install -r requirements.txt && npm install -g @anthropic-ai/claude-code@1.0.37",
+"postCreateCommand": "pip install -r requirements.txt && npm install -g @anthropic-ai/claude-code",
 "postAttachCommand": "uvicorn app.main:app --host 0.0.0.0 --reload",
 "remoteUser": "vscode"
 }
