@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.database import get_db, engine, Base
+from app.auth import router as auth_router  # 追加
 
 # ログ設定
 logging.basicConfig(level=logging.INFO)
@@ -49,6 +50,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 追加：authルータ登録
+app.include_router(auth_router)  
 
 # ルートエンドポイント
 @app.get("/")
