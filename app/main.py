@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.database import get_db, engine, Base
+from app.auth import router as auth_router  # 追加
 
 # 楽天API連携
 from app.services.rakuten_api import (
@@ -87,6 +88,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 追加：authルータ登録
+app.include_router(auth_router)  
 
 # ============================================
 # 基本エンドポイント

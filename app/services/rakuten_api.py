@@ -14,7 +14,7 @@ import logging
 from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 from datetime import datetime
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -47,6 +47,7 @@ RETRY_STATUS_CODES = [429, 500, 502, 503, 504]
 # ============================================
 class APIError(Exception):
     """API関連のエラー"""
+
     pass
 
 
@@ -55,6 +56,7 @@ class APIError(Exception):
 # ============================================
 class Product(BaseModel):
     """商品モデル"""
+
     rakuten_product_id: str = Field(..., alias="itemCode")
     name: str = Field(..., alias="itemName")
     brand: Optional[str] = None
@@ -67,37 +69,37 @@ class Product(BaseModel):
     review_count: Optional[int] = Field(None, alias="reviewCount")
     shop_name: Optional[str] = Field(None, alias="shopName")
     shop_code: Optional[str] = Field(None, alias="shopCode")
-    
-    class Config:
-        populate_by_name = True
-    
-    @validator('image_url', pre=True, always=True)
-    def extract_image_url(cls, v, values):
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator("image_url", mode="before")
+    def extract_image_url(cls, v, info):
         """画像URLを抽出"""
         if isinstance(v, list) and len(v) > 0:
-            return v[0].get('imageUrl') if isinstance(v[0], dict) else v[0]
+            return v[0].get("imageUrl") if isinstance(v[0], dict) else v[0]
         return v
-    
-    @validator('brand', pre=True, always=True)
-    def extract_brand(cls, v, values):
+
+    @field_validator("brand", mode="after")
+    def extract_brand(cls, v, info):
         """ブランド名を抽出（商品名から推測）"""
         if v:
             return v
         # 商品名からブランドを推測（簡易版）
-        item_name = values.get('name', '')
-        for brand in ['BULK HOMME', 'SK-II', 'ORBIS', 'FANCL', 'UNO', 'LUCIDO']:
+        item_name = info.data.get("name", "")
+        for brand in ["BULK HOMME", "SK-II", "ORBIS", "FANCL", "UNO", "LUCIDO"]:
             if brand in item_name.upper():
                 return brand
         return None
-    
-    @validator('category', pre=True, always=True)
-    def set_default_category(cls, v):
+
+    @field_validator("category", mode="after")
+    def set_default_category(cls, v, info):
         """デフォルトカテゴリを設定"""
         return v or "化粧水"
 
 
 class SearchResponse(BaseModel):
     """検索レスポンスモデル"""
+
     products: List[Product]
     total: int
     page: int
@@ -110,12 +112,14 @@ class SearchResponse(BaseModel):
 def validate_env_variables() -> None:
     """
     環境変数の検証
-    
+
     Raises:
         ValueError: 必須の環境変数が設定されていない場合
     """
     if not RAKUTEN_APP_ID:
-        raise ValueError("RAKUTEN_APP_ID が設定されていません。.envファイルを確認してください。")
+        raise ValueError(
+            "RAKUTEN_APP_ID が設定されていません。.envファイルを確認してください。"
+        )
     logger.info(f"環境変数の検証完了: APP_ID={RAKUTEN_APP_ID[:8]}...")
 
 
@@ -126,7 +130,7 @@ def _create_session_with_retry() -> requests.Session:
         total=MAX_RETRIES,
         backoff_factor=BACKOFF_FACTOR,
         status_forcelist=RETRY_STATUS_CODES,
-        allowed_methods=["GET", "POST"]
+        allowed_methods=["GET", "POST"],
     )
     adapter = HTTPAdapter(max_retries=retry_strategy)
     session.mount("http://", adapter)
@@ -137,18 +141,20 @@ def _create_session_with_retry() -> requests.Session:
 # ============================================
 # 商品検索API
 # ============================================
-def search_products(keyword: str, hits: int = 10, page: int = 1) -> Optional[Dict[str, Any]]:
+def search_products(
+    keyword: str, hits: int = 10, page: int = 1
+) -> Optional[Dict[str, Any]]:
     """
     楽天市場商品検索API
-    
+
     Parameters:
         keyword: 検索キーワード
         hits: 取得件数（1-30）
         page: ページ番号
-    
+
     Returns:
         商品リストのJSON
-    
+
     Raises:
         APIError: API呼び出しに失敗した場合
     """
@@ -161,18 +167,18 @@ def search_products(keyword: str, hits: int = 10, page: int = 1) -> Optional[Dic
         "genreId": "100939",  # 美容・コスメ・香水
         "formatVersion": 2,
     }
-    
+
     session = _create_session_with_retry()
-    
+
     try:
         logger.info(f"API呼び出し開始: keyword={keyword}, hits={hits}, page={page}")
         response = session.get(ITEM_SEARCH_API, params=params, timeout=10)
         response.raise_for_status()
-        
+
         data = response.json()
         logger.info(f"API呼び出し成功: {len(data.get('Items', []))}件取得")
         return data
-        
+
     except requests.exceptions.Timeout:
         logger.error("タイムアウトエラー: APIリクエストがタイムアウトしました")
         raise APIError("APIリクエストがタイムアウトしました")
@@ -195,13 +201,13 @@ def search_products(keyword: str, hits: int = 10, page: int = 1) -> Optional[Dic
 def get_ranking(genre_id: str = "100939") -> Optional[Dict[str, Any]]:
     """
     楽天市場ランキングAPI
-    
+
     Parameters:
         genre_id: ジャンルID（100939=美容・コスメ・香水）
-    
+
     Returns:
         ランキングデータ
-    
+
     Raises:
         APIError: API呼び出しに失敗した場合
     """
@@ -211,18 +217,18 @@ def get_ranking(genre_id: str = "100939") -> Optional[Dict[str, Any]]:
         "genreId": genre_id,
         "formatVersion": 2,
     }
-    
+
     session = _create_session_with_retry()
-    
+
     try:
         logger.info(f"ランキングAPI呼び出し: genre_id={genre_id}")
         response = session.get(RANKING_API, params=params, timeout=10)
         response.raise_for_status()
-        
+
         data = response.json()
         logger.info(f"ランキングAPI成功: {len(data.get('Items', []))}件取得")
         return data
-        
+
     except requests.exceptions.RequestException as e:
         logger.error(f"ランキングAPIエラー: {str(e)}")
         raise APIError(f"ランキングAPIエラー: {str(e)}")
@@ -236,24 +242,24 @@ def get_ranking(genre_id: str = "100939") -> Optional[Dict[str, Any]]:
 def format_product_for_db(item: dict) -> dict:
     """
     APIレスポンスをDB保存用に整形
-    
+
     Parameters:
         item: 楽天APIからの商品データ
-    
+
     Returns:
         DB保存用に整形された辞書
-    
+
     Raises:
         ValueError: データの整形に失敗した場合
     """
     try:
         # mediumImageUrlsを正しく処理
-        if 'mediumImageUrls' in item and item['mediumImageUrls']:
-            item['image_url'] = item['mediumImageUrls']
-        
+        if "mediumImageUrls" in item and item["mediumImageUrls"]:
+            item["image_url"] = item["mediumImageUrls"]
+
         # Pydanticモデルでバリデーション
         product = Product(**item)
-        
+
         return {
             "rakuten_product_id": product.rakuten_product_id,
             "name": product.name,
@@ -273,3 +279,53 @@ def format_product_for_db(item: dict) -> dict:
     except Exception as e:
         logger.error(f"商品データの整形に失敗: {str(e)}")
         raise ValueError(f"商品データの整形に失敗: {str(e)}")
+
+
+# ============================================
+# テストコード
+# ============================================
+if __name__ == "__main__":
+    # 環境変数の検証
+    validate_env_variables()
+
+    # 商品検索テスト
+    try:
+        print("=== 商品検索テスト ===")
+        result = search_products("化粧水", hits=3, page=1)
+        if result and "Items" in result:
+            print(f"検索結果: {len(result['Items'])}件の商品が見つかりました")
+
+            for i, item in enumerate(result["Items"][:3], 1):
+                print(f"\n--- 商品 {i} ---")
+                formatted = format_product_for_db(item)
+                print(f"商品ID: {formatted['rakuten_product_id']}")
+                print(f"商品名: {formatted['name']}")
+                print(f"ブランド: {formatted['brand']}")
+                print(f"価格: {formatted['current_price']}円")
+                print(f"カテゴリ: {formatted['category']}")
+        else:
+            print("検索結果がありません")
+
+    except Exception as e:
+        print(f"商品検索テストでエラー: {e}")
+
+    # ランキング取得テスト
+    try:
+        print("\n=== ランキング取得テスト ===")
+        ranking_result = get_ranking()
+        if ranking_result and "Items" in ranking_result:
+            print(
+                f"ランキング結果: {len(ranking_result['Items'])}件の商品が見つかりました"
+            )
+
+            for i, item in enumerate(ranking_result["Items"][:3], 1):
+                print(f"\n--- ランキング {i} ---")
+                formatted = format_product_for_db(item)
+                print(f"商品ID: {formatted['rakuten_product_id']}")
+                print(f"商品名: {formatted['name']}")
+                print(f"価格: {formatted['current_price']}円")
+        else:
+            print("ランキング結果がありません")
+
+    except Exception as e:
+        print(f"ランキング取得テストでエラー: {e}")
