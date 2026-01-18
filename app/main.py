@@ -38,19 +38,23 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS設定 (重要!)
+# CORS設定 (重要! - ルータ登録の前に設定)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",  # ブラウザから
-        "http://frontend:3000",  # コンテナ間通信
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "http://frontend:3000",
+        "http://127.0.0.1:3000",
     ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,
 )
 
-# 追加：authルータ登録
+# ルータ登録（CORS設定の後）
 app.include_router(auth_router)  
 
 # ルートエンドポイント
