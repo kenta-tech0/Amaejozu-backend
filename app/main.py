@@ -290,6 +290,9 @@ async def search_products_in_db(
     brand_id: Optional[str] = Query(None, description="ブランドID"),
     min_price: Optional[int] = Query(None, ge=0, description="最低価格"),
     max_price: Optional[int] = Query(None, ge=0, description="最高価格"),
+    sort: Optional[str] = Query(
+        None, description="ソート順（price_asc, price_desc, popular）"
+    ),
     page: int = Query(1, ge=1, description="ページ番号"),
     limit: int = Query(20, ge=1, le=100, description="1ページあたりの取得件数"),
     db: Session = Depends(get_db),
@@ -322,6 +325,16 @@ async def search_products_in_db(
             query = query.filter(ProductModel.current_price >= min_price)
         if max_price is not None:
             query = query.filter(ProductModel.current_price <= max_price)
+
+        # ソート
+        if sort == "price_asc":
+            query = query.order_by(ProductModel.current_price.asc())
+        elif sort == "price_desc":
+            query = query.order_by(ProductModel.current_price.desc())
+        elif sort == "popular":
+            query = query.order_by(ProductModel.review_count.desc().nullslast())
+        else:
+            query = query.order_by(ProductModel.updated_at.desc())
 
         # 総件数を取得
         total = query.count()
