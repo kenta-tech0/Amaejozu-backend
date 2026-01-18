@@ -49,23 +49,42 @@ class PriceBatchProcessor:
         logger.info(f"ウォッチリスト商品数: {len(products)}")
         return products
     
-    def fetch_latest_price(self, product: Product) -> Optional[int]:
-        """楽天APIから最新価格を取得"""
-        try:
-            # 商品名で検索（より正確にはrakuten_item_codeで検索するのが理想）
-            result = search_products(product.name[:50], hits=1)
-            
-            if result and "Items" in result and len(result["Items"]) > 0:
-                item = result["Items"][0]
-                return item.get("itemPrice")
-            
-            logger.warning(f"商品が見つかりません: {product.name[:30]}...")
-            return None
-            
-        except APIError as e:
-            logger.error(f"API エラー: {product.name[:30]}... - {str(e)}")
-            self.error_count += 1
-            return None
+    def fetch_latest_price(self, product: Product, max_retries: int = 3) -> Optional[int]:
+        """楽天APIから最新価格を取得（リトライ付き）"""
+        import time
+        
+        for attempt in range(max_retries):
+            try:
+                # 商品名で検索
+                result = search_products(product.name[:50], hits=1)
+                
+                if result and "Items" in result and len(result["Items"]) > 0:
+                    item = result["Items"][0]
+                    return item.get("itemPrice")
+                
+                logger.warning(f"商品が見つかりません: {product.name[:30]}...")
+                return None
+                
+            except APIError as e:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt  # 1秒, 2秒, 4秒...
+                    logger.warning(
+                        f"APIエラー、リトライします ({attempt + 1}/{max_retries}): "
+                        f"{wait_time}秒待機 - {str(e)}"
+                    )
+                    time.sleep(wait_time)
+                else:
+                    logger.error(
+                        f"最大リトライ回数に到達: {product.name[:30]}... - {str(e)}"
+                    )
+                    self.error_count += 1
+                    return None
+            except Exception as e:
+                logger.error(f"予期しないエラー: {product.name[:30]}... - {str(e)}")
+                self.error_count += 1
+                return None
+        
+        return None
     
     def detect_price_change(self, product: Product, new_price: int) -> Dict[str, Any]:
         """価格変動を検出"""
