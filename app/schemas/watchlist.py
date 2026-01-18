@@ -1,43 +1,64 @@
-"""Watchlist schemas"""
-from __future__ import annotations
-
+"""
+Watchlist API スキーマ定義
+"""
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
-
-from pydantic import Field
-
-from .base import BaseSchema
-
-if TYPE_CHECKING:
-    from .product import ProductResponse
+from typing import Optional, List
+from pydantic import BaseModel, Field
 
 
-class WatchlistBase(BaseSchema):
-    """Base watchlist schema"""
-    user_id: str = Field(..., max_length=36)
-    product_id: str = Field(..., max_length=36)
-    target_price: Optional[int] = None
-    notify_any_drop: bool = True
+# ============================================
+# リクエストスキーマ
+# ============================================
+class WatchlistCreateRequest(BaseModel):
+    """ウォッチリスト追加リクエスト"""
+    product_id: str = Field(..., description="商品ID")
+    target_price: Optional[int] = Field(None, description="目標価格", ge=0)
 
 
-class WatchlistCreate(WatchlistBase):
-    """Schema for creating a watchlist item"""
-    id: str = Field(..., max_length=36)
-
-
-class WatchlistUpdate(BaseSchema):
-    """Schema for updating a watchlist item"""
-    target_price: Optional[int] = None
-    notify_any_drop: Optional[bool] = None
-
-
-class WatchlistResponse(WatchlistBase):
-    """Schema for watchlist response"""
+# ============================================
+# レスポンススキーマ
+# ============================================
+class ProductInWatchlist(BaseModel):
+    """ウォッチリスト内の商品情報"""
     id: str
-    created_at: datetime
-    updated_at: datetime
+    name: str
+    current_price: int
+    image_url: Optional[str] = None
+
+    class Config:
+        from_attributes = True
 
 
-class WatchlistWithProduct(WatchlistResponse):
-    """Schema for watchlist response with product details"""
-    product: Optional[ProductResponse] = None
+class WatchlistItemResponse(BaseModel):
+    """ウォッチリストアイテムレスポンス"""
+    id: str
+    product: ProductInWatchlist
+    target_price: Optional[int] = None
+    added_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class WatchlistResponse(BaseModel):
+    """ウォッチリスト一覧レスポンス"""
+    watchlist: List[WatchlistItemResponse]
+
+
+class PriceHistoryItem(BaseModel):
+    """価格履歴アイテム"""
+    price: int
+    recorded_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PriceHistoryResponse(BaseModel):
+    """価格履歴レスポンス"""
+    price_history: List[PriceHistoryItem]
+
+
+class MessageResponse(BaseModel):
+    """メッセージレスポンス"""
+    message: str
