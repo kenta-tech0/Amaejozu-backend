@@ -5,14 +5,32 @@ Based on app/models
 
 from .base import BaseSchema
 from .user import UserBase, UserCreate, UserUpdate, UserResponse
-from .category import CategoryBase, CategoryCreate, CategoryUpdate, CategoryResponse
-from .brand import BrandBase, BrandCreate, BrandUpdate, BrandResponse
+from .category import (
+    CategoryBase,
+    CategoryCreate,
+    CategoryUpdate,
+    CategoryResponse,
+    CategorySummary,
+    CategoryListResponse,
+)
+from .brand import (
+    BrandBase,
+    BrandCreate,
+    BrandUpdate,
+    BrandResponse,
+    BrandSummary,
+    BrandListResponse,
+)
 from .product import (
     ProductBase,
     ProductCreate,
     ProductUpdate,
     ProductResponse,
     ProductWithBrandCategory,
+    ProductSummary,
+    ProductSearchResponse,
+    ProductListResponse,
+    ProductDetailResponse,
 )
 from .price_history import PriceHistoryBase, PriceHistoryCreate, PriceHistoryResponse
 from .watchlist import (
@@ -58,15 +76,23 @@ __all__ = [
     "CategoryCreate",
     "CategoryUpdate",
     "CategoryResponse",
+    "CategorySummary",
+    "CategoryListResponse",
     "BrandBase",
     "BrandCreate",
     "BrandUpdate",
     "BrandResponse",
+    "BrandSummary",
+    "BrandListResponse",
     "ProductBase",
     "ProductCreate",
     "ProductUpdate",
     "ProductResponse",
     "ProductWithBrandCategory",
+    "ProductSummary",
+    "ProductSearchResponse",
+    "ProductListResponse",
+    "ProductDetailResponse",
     "PriceHistoryBase",
     "PriceHistoryCreate",
     "PriceHistoryResponse",

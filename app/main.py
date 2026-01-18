@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from contextlib import asynccontextmanager
-from typing import List, Optional
+from typing import Optional
 import logging
 from datetime import datetime
 from dotenv import load_dotenv
@@ -16,7 +16,24 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.database import get_db, engine, Base
-from app.auth import router as auth_router  # 追加
+from app.auth import router as auth_router
+
+# スキーマ
+from app.schemas import (
+    ProductSearchResponse,
+    ProductListResponse,
+    ProductDetailResponse,
+    ProductSummary,
+    CategoryListResponse,
+    CategorySummary,
+    BrandListResponse,
+    BrandSummary,
+)
+
+# DBモデル
+from app.models.product import Product as ProductModel
+from app.models.brand import Brand
+from app.models.category import Category
 
 # 楽天API連携
 from app.services.rakuten_api import (
@@ -24,8 +41,6 @@ from app.services.rakuten_api import (
     format_product_for_db,
     APIError,
     validate_env_variables,
-    SearchResponse,
-    Product
 )
 
 # ログ設定
@@ -227,67 +242,187 @@ async def search_products(
         )
 
 
-@app.get("/app/api/products/{product_id}")
+@app.get("/app/api/products/{product_id}", response_model=ProductDetailResponse)
 async def get_product(product_id: str, db: Session = Depends(get_db)):
     """
     商品詳細取得エンドポイント
-    
+
     Parameters:
-        product_id: 楽天商品ID
-    
+        product_id: 商品ID（UUID）
+
     Returns:
         商品詳細情報
     """
     try:
-        # TODO: DBから商品を取得する処理を実装
-        # product = db.query(Product).filter(Product.rakuten_product_id == product_id).first()
-        
-        return {
-            "status": "ok",
-            "message": "この機能は実装予定です",
-            "product_id": product_id
-        }
+        product = db.query(ProductModel).filter(ProductModel.id == product_id).first()
+
+        if not product:
+            raise HTTPException(status_code=404, detail="商品が見つかりませんでした")
+
+        from app.schemas import ProductResponse
+        return ProductDetailResponse(
+            product=ProductResponse.model_validate(product)
+        )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"商品取得エラー: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"サーバーエラー: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"サーバーエラー: {str(e)}")
 
 
-@app.get("/app/api/products")
+@app.get("/app/api/products", response_model=ProductListResponse)
 async def list_products(
     skip: int = Query(0, ge=0, description="スキップ件数"),
     limit: int = Query(20, ge=1, le=100, description="取得件数"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     商品一覧取得エンドポイント
-    
+
     Parameters:
         skip: スキップ件数
         limit: 取得件数
-    
+
     Returns:
         商品一覧
     """
     try:
-        # TODO: DBから商品一覧を取得する処理を実装
-        # products = db.query(Product).offset(skip).limit(limit).all()
-        
-        return {
-            "status": "ok",
-            "message": "この機能は実装予定です",
-            "skip": skip,
-            "limit": limit,
-            "products": []
-        }
+        products = db.query(ProductModel).offset(skip).limit(limit).all()
+
+        product_list = [
+            ProductSummary.model_validate(p) for p in products
+        ]
+
+        return ProductListResponse(
+            products=product_list,
+            skip=skip,
+            limit=limit,
+        )
     except Exception as e:
         logger.error(f"商品一覧取得エラー: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"サーバーエラー: {str(e)}"
+        raise HTTPException(status_code=500, detail=f"サーバーエラー: {str(e)}")
+
+
+# ============================================
+# DB商品検索エンドポイント
+# ============================================
+@app.get("/api/products/search", response_model=ProductSearchResponse)
+async def search_products_in_db(
+    keyword: Optional[str] = Query(None, description="検索キーワード（商品名）"),
+    category_id: Optional[str] = Query(None, description="カテゴリID"),
+    brand_id: Optional[str] = Query(None, description="ブランドID"),
+    min_price: Optional[int] = Query(None, ge=0, description="最低価格"),
+    max_price: Optional[int] = Query(None, ge=0, description="最高価格"),
+    sort: Optional[str] = Query(
+        None, description="ソート順（price_asc, price_desc, popular）"
+    ),
+    page: int = Query(1, ge=1, description="ページ番号"),
+    limit: int = Query(20, ge=1, le=100, description="1ページあたりの取得件数"),
+    db: Session = Depends(get_db),
+):
+    """
+    DB内の商品検索エンドポイント
+
+    フィルタ条件:
+        keyword: 商品名の部分一致検索
+        category_id: カテゴリでフィルタ
+        brand_id: ブランドでフィルタ
+        min_price/max_price: 価格範囲
+        sort: ソート順（price_asc, price_desc, popular）
+    """
+    try:
+        logger.info(
+            f"DB検索リクエスト: keyword={keyword}, category_id={category_id}, brand_id={brand_id}"
         )
+
+        # ベースクエリ
+        query = db.query(ProductModel)
+
+        # キーワード検索（商品名の部分一致）
+        if keyword:
+            # LIKEワイルドカードをエスケープ
+            escaped_keyword = keyword.replace("%", r"\%").replace("_", r"\_")
+            query = query.filter(ProductModel.name.ilike(f"%{escaped_keyword}%"))
+
+        # カテゴリフィルタ
+        if category_id:
+            query = query.filter(ProductModel.category_id == category_id)
+
+        # ブランドフィルタ
+        if brand_id:
+            query = query.filter(ProductModel.brand_id == brand_id)
+
+        # 価格範囲フィルタ
+        if min_price is not None:
+            query = query.filter(ProductModel.current_price >= min_price)
+        if max_price is not None:
+            query = query.filter(ProductModel.current_price <= max_price)
+
+        # ソート
+        if sort == "price_asc":
+            query = query.order_by(ProductModel.current_price.asc())
+        elif sort == "price_desc":
+            query = query.order_by(ProductModel.current_price.desc())
+        elif sort == "popular":
+            query = query.order_by(ProductModel.review_count.desc().nullslast())
+        else:
+            query = query.order_by(ProductModel.updated_at.desc())
+
+        # 総件数を取得
+        total = query.count()
+
+        # ページネーション
+        offset = (page - 1) * limit
+        products = query.offset(offset).limit(limit).all()
+
+        # スキーマを使用してレスポンスを構築
+        product_list = [ProductSummary.model_validate(p) for p in products]
+
+        logger.info(f"DB検索成功: {len(product_list)}件取得（総数: {total}件）")
+
+        return ProductSearchResponse(
+            products=product_list,
+            total=total,
+            page=page,
+            limit=limit,
+            total_pages=(total + limit - 1) // limit,
+        )
+
+    except Exception as e:
+        logger.error(f"DB検索エラー: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"サーバーエラー: {str(e)}")
+
+
+@app.get("/api/categories", response_model=CategoryListResponse)
+async def list_categories(db: Session = Depends(get_db)):
+    """カテゴリ一覧を取得"""
+    try:
+        categories = db.query(Category).order_by(Category.sort_order).all()
+        category_list = [CategorySummary.model_validate(c) for c in categories]
+
+        return CategoryListResponse(
+            categories=category_list,
+            count=len(category_list),
+        )
+    except Exception as e:
+        logger.error(f"カテゴリ取得エラー: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/brands", response_model=BrandListResponse)
+async def list_brands(db: Session = Depends(get_db)):
+    """ブランド一覧を取得"""
+    try:
+        brands = db.query(Brand).order_by(Brand.name).all()
+        brand_list = [BrandSummary.model_validate(b) for b in brands]
+
+        return BrandListResponse(
+            brands=brand_list,
+            count=len(brand_list),
+        )
+    except Exception as e:
+        logger.error(f"ブランド取得エラー: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============================================

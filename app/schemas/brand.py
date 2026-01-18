@@ -1,6 +1,6 @@
 """Brand schemas"""
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from pydantic import Field
 
@@ -31,3 +31,17 @@ class BrandResponse(BrandBase):
     id: str
     created_at: datetime
     updated_at: datetime
+
+
+class BrandSummary(BaseSchema):
+    """ブランドサマリー（一覧用の軽量版）"""
+    id: str
+    name: str
+    shop_code: str
+
+
+class BrandListResponse(BaseSchema):
+    """ブランド一覧レスポンス"""
+    status: str = "ok"
+    brands: List[BrandSummary]
+    count: int

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, List
 
 from pydantic import Field
 
@@ -68,3 +68,46 @@ class ProductWithBrandCategory(ProductResponse):
     """Schema for product response with brand and category details"""
     brand: Optional[BrandResponse] = None
     category: Optional[CategoryResponse] = None
+
+
+class ProductSummary(BaseSchema):
+    """商品サマリー（検索結果用の軽量版）"""
+    id: str
+    name: str
+    brand_id: str
+    category_id: str
+    current_price: int
+    original_price: int
+    discount_rate: float
+    is_on_sale: bool
+    image_url: Optional[str] = None
+    product_url: str
+    review_score: Optional[int] = None
+    review_count: Optional[int] = None
+
+
+class ProductSearchResponse(BaseSchema):
+    """商品検索レスポンス"""
+    status: str = "ok"
+    products: List[ProductSummary]
+    total: int
+    page: int
+    limit: int
+    total_pages: int
+
+
+class ProductListResponse(BaseSchema):
+    """商品一覧レスポンス"""
+    status: str = "ok"
+    products: List[ProductSummary]
+    skip: int
+    limit: int
+    message: Optional[str] = None
+
+
+class ProductDetailResponse(BaseSchema):
+    """商品詳細レスポンス"""
+    status: str = "ok"
+    product: Optional[ProductResponse] = None
+    product_id: Optional[str] = None
+    message: Optional[str] = None

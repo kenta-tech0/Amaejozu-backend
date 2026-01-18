@@ -1,6 +1,6 @@
 """Category schemas"""
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from pydantic import Field
 
@@ -31,3 +31,17 @@ class CategoryResponse(CategoryBase):
     id: str
     created_at: datetime
     updated_at: datetime
+
+
+class CategorySummary(BaseSchema):
+    """カテゴリサマリー（一覧用の軽量版）"""
+    id: str
+    name: str
+    slug: str
+
+
+class CategoryListResponse(BaseSchema):
+    """カテゴリ一覧レスポンス"""
+    status: str = "ok"
+    categories: List[CategorySummary]
+    count: int
