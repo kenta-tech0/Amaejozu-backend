@@ -16,11 +16,10 @@ from .product import (
 )
 from .price_history import PriceHistoryBase, PriceHistoryCreate, PriceHistoryResponse
 from .watchlist import (
-    WatchlistBase,
-    WatchlistCreate,
-    WatchlistUpdate,
+    WatchlistCreateRequest,
+    WatchlistItemResponse,
     WatchlistResponse,
-    WatchlistWithProduct,
+    ProductInWatchlist,
 )
 from .alert import AlertBase, AlertCreate, AlertResponse
 from .notification import (
@@ -44,7 +43,6 @@ from .user_interest import (
 
 # Rebuild models with forward references
 ProductWithBrandCategory.model_rebuild()
-WatchlistWithProduct.model_rebuild()
 BrandFollowWithBrand.model_rebuild()
 UserInterestWithCategory.model_rebuild()
 
@@ -70,11 +68,10 @@ __all__ = [
     "PriceHistoryBase",
     "PriceHistoryCreate",
     "PriceHistoryResponse",
-    "WatchlistBase",
-    "WatchlistCreate",
-    "WatchlistUpdate",
+    "WatchlistCreateRequest",
+    "WatchlistItemResponse",
     "WatchlistResponse",
-    "WatchlistWithProduct",
+    "ProductInWatchlist",
     "AlertBase",
     "AlertCreate",
     "AlertResponse",
