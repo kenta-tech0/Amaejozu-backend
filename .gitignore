@@ -33,5 +33,6 @@ venv/
 .vscode/
 .DS_Store
 Thumbs.db
+
 # Azure Functions
 azure_functions/local.settings.json
