@@ -1,10 +1,189 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, status, Header
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from datetime import datetime, timedelta
+from typing import Optional
+import jwt
+import bcrypt
+import uuid
+import os
+
+from app.database import get_db
+from app.models.user import User
+
+# JWT設定
+SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7日間
+
+# Pydanticモデル
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class SignupRequest(BaseModel):
+    email: str
+    password: str
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    nickname: str
+
+class AuthResponse(BaseModel):
+    success: bool
+    message: str
+    token: Optional[str] = None
+    user: Optional[UserResponse] = None
 
 router = APIRouter(
     prefix="/auth",
     tags=["auth"]
 )
 
+# パスワードハッシュ化
+def hash_password(password: str) -> str:
+    """パスワードをハッシュ化"""
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password.encode(), salt).decode()
+
+def verify_password(password: str, hashed_password: str) -> bool:
+    """パスワード検証"""
+    return bcrypt.checkpw(password.encode(), hashed_password.encode())
+
+# JWTトークン生成
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    """アクセストークン生成"""
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+def get_current_user(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+    """トークンからユーザー取得"""
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="認証トークンが必要です",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="認証情報が無効です",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        # Bearer トークンの場合は "Bearer " プレフィックスを削除
+        token = authorization
+        if token.startswith("Bearer "):
+            token = token[7:]
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+    except jwt.InvalidTokenError:
+        raise credentials_exception
+    
+    user = db.query(User).filter(User.email == email).first()
+    if user is None:
+        raise credentials_exception
+    return user
+
+@router.post("/login", response_model=AuthResponse)
+def login(request: LoginRequest, db: Session = Depends(get_db)):
+    """ユーザーログイン"""
+    # ユーザー取得
+    user = db.query(User).filter(User.email == request.email).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="メールアドレスまたはパスワードが正しくありません"
+        )
+    
+    # パスワード検証
+    if not verify_password(request.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="メールアドレスまたはパスワードが正しくありません"
+        )
+    
+    # トークン生成
+    access_token = create_access_token(
+        data={"sub": user.email},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    
+    return AuthResponse(
+        success=True,
+        message="ログインに成功しました",
+        token=access_token,
+        user=UserResponse(
+            id=user.id,
+            email=user.email,
+            nickname=user.nickname
+        )
+    )
+
+@router.post("/signup", response_model=AuthResponse)
+def signup(request: SignupRequest, db: Session = Depends(get_db)):
+    """ユーザー登録"""
+    # メール重複チェック
+    existing_user = db.query(User).filter(User.email == request.email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="このメールアドレスは既に登録されています"
+        )
+    
+    # パスワードハッシュ化
+    password_hash = hash_password(request.password)
+    
+    # 新規ユーザー作成
+    new_user = User(
+        id=str(uuid.uuid4()),
+        email=request.email,
+        password_hash=password_hash,
+        nickname=request.email.split("@")[0],  # メール名をニックネームに
+        push_enabled=False,
+        email_enabled=True
+    )
+    
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    # トークン生成
+    access_token = create_access_token(
+        data={"sub": new_user.email},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    
+    return AuthResponse(
+        success=True,
+        message="登録に成功しました",
+        token=access_token,
+        user=UserResponse(
+            id=new_user.id,
+            email=new_user.email,
+            nickname=new_user.nickname
+        )
+    )
+
 @router.get("/ping")
 def auth_ping():
     return {"message": "auth router is alive"}
+
+@router.get("/me", response_model=UserResponse)
+def get_me(current_user: User = Depends(get_current_user)):
+    """現在のログインユーザー情報を取得"""
+    return UserResponse(
+        id=current_user.id,
+        email=current_user.email,
+        nickname=current_user.nickname
+    )
