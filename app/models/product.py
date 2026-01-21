@@ -38,6 +38,8 @@ class Product(Base):
     review_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     ranking: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     ranking_prev: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    recommendation_text: Mapped[Optional[str]] = mapped_column(String(2000), nullable=True)
+    recommendation_generated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
