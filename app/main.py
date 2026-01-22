@@ -17,6 +17,7 @@ load_dotenv()
 
 from app.database import get_db, engine, Base
 from app.auth import router as auth_router  # 追加
+from app.routers.notification import router as notification_router # 追加
 from app.routers.watchlist import router as watchlist_router  # ウォッチリスト
 
 # 楽天API連携
@@ -105,6 +106,8 @@ app.add_middleware(
 )
 
 # 追加：authルータ登録
+app.include_router(auth_router)  
+app.include_router(notification_router) # 追加：notificationルータ登録
 app.include_router(auth_router)
 # ウォッチリストルータ登録
 app.include_router(watchlist_router)
