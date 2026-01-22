@@ -13,9 +13,29 @@ if not DATABASE_URL:
 
 connect_args = {}
 
-# Azure MySQL っぽいホストなら SSL を有効化（CAファイルがある前提）
+# Azure MySQL っぽいホストなら SSL を有効化
 if "mysql.database.azure.com" in DATABASE_URL:
-    connect_args = {"ssl": {"ca": os.getenv("SSL_CA_PATH")}}
+    ssl_ca_path = os.getenv("SSL_CA_PATH")
+    if not ssl_ca_path:
+        # デフォルトのCA証明書パス（DigiCert Global Root CA）
+        default_cert_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "DigiCertGlobalRootCA.crt.pem"
+        )
+        if os.path.exists(default_cert_path):
+            ssl_ca_path = default_cert_path
+
+    if ssl_ca_path and os.path.exists(ssl_ca_path):
+        connect_args = {
+            "ssl_ca": ssl_ca_path,
+            "ssl_verify_cert": True,
+        }
+    else:
+        # Azure MySQLはSSL必須のため、システムのCA証明書を使用
+        import certifi
+        connect_args = {
+            "ssl_ca": certifi.where(),
+            "ssl_verify_cert": True,
+        }
 
 engine = create_engine(
     DATABASE_URL,

@@ -1,0 +1,45 @@
+# 本番用 Dockerfile
+FROM python:3.11-slim
+
+# セキュリティアップデートと必要なパッケージのインストール
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# 非rootユーザーを作成（セキュリティ向上）
+RUN useradd --create-home --shell /bin/bash appuser
+
+# pip をアップグレード
+RUN pip install --no-cache-dir --upgrade pip
+
+# 作業ディレクトリ
+WORKDIR /app
+
+# 依存関係を先にコピー（キャッシュ効率化）
+COPY requirements.txt ./
+
+# 依存関係のインストール
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Azure MySQL SSL証明書をダウンロード
+RUN curl -sS "https://dl.cacerts.digicert.com/DigiCertGlobalRootCA.crt.pem" -o DigiCertGlobalRootCA.crt.pem
+
+# アプリケーションコードをコピー
+COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini ./
+
+# ユーザーを切り替え
+RUN chown -R appuser:appuser /app
+USER appuser
+
+# ポート公開
+EXPOSE 8000
+
+# ヘルスチェック
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/app/api/health || exit 1
+
+# 起動コマンド（マイグレーション実行後にサーバー起動）
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]

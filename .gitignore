@@ -35,3 +35,9 @@ venv/
 Thumbs.db
 # Azure Functions
 azure_functions/local.settings.json
+
+# SSL certificates
+*.pem
+*.crt
+
+.claude/

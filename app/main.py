@@ -29,6 +29,13 @@ from app.services.rakuten_api import (
     Product,
 )
 
+# OpenAI連携
+from app.services.openai_service import (
+    generate_recommendation,
+    OpenAIServiceError,
+)
+from sqlalchemy.orm import joinedload
+
 # DBモデル
 from app.models.product import Product as ProductModel
 from app.models.brand import Brand
@@ -231,25 +238,84 @@ async def search_products(
 
 
 @app.get("/app/api/products/{product_id}")
-async def get_product(product_id: str, db: Session = Depends(get_db)):
+async def get_product(
+    product_id: str,
+    include_recommendation: bool = Query(True, description="お勧め文を含めるか"),
+    db: Session = Depends(get_db),
+):
     """
     商品詳細取得エンドポイント
 
     Parameters:
-        product_id: 楽天商品ID
+        product_id: 商品ID
+        include_recommendation: お勧め文を含めるか（デフォルト: True）
 
     Returns:
-        商品詳細情報
+        商品詳細情報（お勧め文含む）
     """
     try:
-        # TODO: DBから商品を取得する処理を実装
-        # product = db.query(Product).filter(Product.rakuten_product_id == product_id).first()
+        # DBから商品を取得（リレーション含む）
+        product = (
+            db.query(ProductModel)
+            .options(
+                joinedload(ProductModel.brand),
+                joinedload(ProductModel.category),
+            )
+            .filter(ProductModel.id == product_id)
+            .first()
+        )
 
-        return {
-            "status": "ok",
-            "message": "この機能は実装予定です",
-            "product_id": product_id,
+        if not product:
+            raise HTTPException(status_code=404, detail="商品が見つかりません")
+
+        # レスポンスデータを構築
+        response_data = {
+            "id": product.id,
+            "name": product.name,
+            "brand": (
+                {"id": product.brand.id, "name": product.brand.name}
+                if product.brand
+                else None
+            ),
+            "category": (
+                {"id": product.category.id, "name": product.category.name}
+                if product.category
+                else None
+            ),
+            "current_price": product.current_price,
+            "original_price": product.original_price,
+            "lowest_price": product.lowest_price,
+            "discount_rate": product.discount_rate,
+            "is_on_sale": product.is_on_sale,
+            "image_url": product.image_url,
+            "product_url": product.product_url,
+            "affiliate_url": product.affiliate_url,
+            "review_score": product.review_score,
+            "review_count": product.review_count,
         }
+
+        # お勧め文を生成（オプション）
+        if include_recommendation:
+            try:
+                recommendation = generate_recommendation(product, db)
+                if recommendation:
+                    response_data["recommendation"] = {
+                        "text": recommendation.recommendation_text,
+                        "generated_at": recommendation.generated_at.isoformat(),
+                        "is_cached": recommendation.is_cached,
+                    }
+                else:
+                    response_data["recommendation"] = None
+            except OpenAIServiceError as e:
+                logger.warning(f"お勧め文生成をスキップ: {str(e)}")
+                response_data["recommendation"] = None
+        else:
+            response_data["recommendation"] = None
+
+        return {"status": "ok", "product": response_data}
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"商品取得エラー: {str(e)}")
         raise HTTPException(status_code=500, detail=f"サーバーエラー: {str(e)}")
