@@ -68,3 +68,29 @@ class ProductWithBrandCategory(ProductResponse):
     """Schema for product response with brand and category details"""
     brand: Optional[BrandResponse] = None
     category: Optional[CategoryResponse] = None
+
+
+class RecommendationSchema(BaseSchema):
+    """Schema for recommendation text"""
+    text: str
+    generated_at: datetime
+    is_cached: bool = False
+
+
+class ProductDetailResponse(BaseSchema):
+    """Schema for product detail response with recommendation"""
+    id: str
+    name: str
+    brand: Optional[BrandResponse] = None
+    category: Optional[CategoryResponse] = None
+    current_price: int
+    original_price: int
+    lowest_price: Optional[int] = None
+    discount_rate: float = 0.0
+    is_on_sale: bool = False
+    image_url: Optional[str] = None
+    product_url: str
+    affiliate_url: Optional[str] = None
+    review_score: Optional[int] = None
+    review_count: Optional[int] = None
+    recommendation: Optional[RecommendationSchema] = None
