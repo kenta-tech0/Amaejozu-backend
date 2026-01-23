@@ -16,9 +16,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.database import get_db, engine, Base
-from app.auth import router as auth_router  # 追加
-from app.routers.notification import router as notification_router # 追加
-from app.routers.watchlist import router as watchlist_router  # ウォッチリスト
+from app.auth import router as auth_router
+from app.routers.notification import router as notification_router
+from app.routers.watchlist import router as watchlist_router
 
 # 楽天API連携
 from app.services.rakuten_api import (
@@ -41,6 +41,9 @@ from sqlalchemy.orm import joinedload
 from app.models.product import Product as ProductModel
 from app.models.brand import Brand
 from app.models.category import Category
+
+# キャッシュサービス
+from app.services.cache_service import product_cache
 
 # ログ設定
 logging.basicConfig(
@@ -105,11 +108,9 @@ app.add_middleware(
     max_age=3600,
 )
 
-# 追加：authルータ登録
-app.include_router(auth_router)  
-app.include_router(notification_router) # 追加：notificationルータ登録
+# ルータ登録
 app.include_router(auth_router)
-# ウォッチリストルータ登録
+app.include_router(notification_router)
 app.include_router(watchlist_router)
 
 
@@ -125,14 +126,15 @@ async def root():
         "status": "running",
         "docs": "/docs",
         "endpoints": {
-            "health": "/app/api/health",
-            "db_health": "/app/api/db/health",
-            "product_search": "/app/api/products/search",
+            "health": "/api/health",
+            "db_health": "/api/db/health",
+            "external_search": "/api/products/external-search",
+            "db_search": "/api/products/search",
         },
     }
 
 
-@app.get("/app/api/health")
+@app.get("/api/health")
 async def health_check():
     """ヘルスチェックエンドポイント"""
     return {
@@ -147,7 +149,7 @@ async def health_check():
 # ============================================
 # データベース関連エンドポイント
 # ============================================
-@app.get("/app/api/db/health")
+@app.get("/api/db/health")
 async def db_health_check(db: Session = Depends(get_db)):
     """データベース接続確認エンドポイント"""
     try:
@@ -165,7 +167,7 @@ async def db_health_check(db: Session = Depends(get_db)):
         return {"status": "error", "message": str(e)}
 
 
-@app.get("/app/api/db/tables")
+@app.get("/api/db/tables")
 async def list_tables(db: Session = Depends(get_db)):
     """データベース内のテーブル一覧を取得"""
     try:
@@ -179,19 +181,20 @@ async def list_tables(db: Session = Depends(get_db)):
 
 
 # ============================================
-# 楽天API 商品検索エンドポイント
+# 楽天API 商品検索エンドポイント（キャッシュ対応）
 # ============================================
-@app.get("/app/api/products/search")
-async def search_products(
+@app.get("/api/products/external-search")
+async def search_products_external(
     keyword: str = Query(..., description="検索キーワード"),
     page: int = Query(1, ge=1, le=100, description="ページ番号"),
     limit: int = Query(20, ge=1, le=30, description="1ページあたりの取得件数"),
     db: Session = Depends(get_db),
 ):
     """
-    商品検索エンドポイント
+    楽天API商品検索エンドポイント（キャッシュ対応）
 
-    楽天APIから商品を検索し、結果を返す
+    1. キャッシュにヒットすれば即座に返す
+    2. キャッシュミス時は楽天APIを呼び出し、結果をキャッシュに保存
 
     Parameters:
         keyword: 検索キーワード
@@ -199,10 +202,26 @@ async def search_products(
         limit: 取得件数（1-30）
 
     Returns:
-        商品リスト、総数、ページ情報
+        商品リスト、総数、ページ情報、キャッシュ状態
     """
     try:
-        logger.info(f"検索リクエスト: keyword={keyword}, page={page}, limit={limit}")
+        # キャッシュキーを生成（キーワード+ページ+リミット）
+        cache_key = f"{keyword}:p{page}:l{limit}"
+
+        # キャッシュをチェック
+        cached_data = product_cache.get(cache_key)
+        if cached_data is not None:
+            logger.info(f"キャッシュヒット: {cache_key}")
+            return {
+                "status": "ok",
+                "products": cached_data["products"],
+                "total": cached_data["total"],
+                "page": page,
+                "limit": limit,
+                "cached": True,
+            }
+
+        logger.info(f"キャッシュミス - 楽天API呼び出し: keyword={keyword}, page={page}, limit={limit}")
 
         # 楽天APIから検索
         result = rakuten_search(keyword, hits=limit, page=page)
@@ -220,14 +239,19 @@ async def search_products(
                 logger.error(f"商品データ処理エラー: {str(e)}")
                 continue
 
-        logger.info(f"検索成功: {len(products)}件取得")
+        total = result.get("count", len(products))
+
+        # キャッシュに保存
+        product_cache.set(cache_key, {"products": products, "total": total})
+        logger.info(f"キャッシュ保存: {cache_key} ({len(products)}件)")
 
         return {
             "status": "ok",
             "products": products,
-            "total": result.get("count", len(products)),
+            "total": total,
             "page": page,
             "limit": limit,
+            "cached": False,
         }
 
     except APIError as e:
@@ -240,7 +264,7 @@ async def search_products(
         raise HTTPException(status_code=500, detail=f"サーバーエラー: {str(e)}")
 
 
-@app.get("/app/api/products/{product_id}")
+@app.get("/api/products/{product_id}")
 async def get_product(
     product_id: str,
     include_recommendation: bool = Query(True, description="お勧め文を含めるか"),
@@ -324,7 +348,7 @@ async def get_product(
         raise HTTPException(status_code=500, detail=f"サーバーエラー: {str(e)}")
 
 
-@app.get("/app/api/products")
+@app.get("/api/products")
 async def list_products(
     skip: int = Query(0, ge=0, description="スキップ件数"),
     limit: int = Query(20, ge=1, le=100, description="取得件数"),
@@ -487,6 +511,18 @@ async def list_brands(db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"ブランド取得エラー: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================
+# キャッシュ統計エンドポイント（管理用）
+# ============================================
+@app.get("/api/cache/stats")
+async def get_cache_stats():
+    """キャッシュ統計情報を取得（管理・モニタリング用）"""
+    return {
+        "status": "ok",
+        "cache": product_cache.get_stats(),
+    }
 
 
 # ============================================
