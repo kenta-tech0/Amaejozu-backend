@@ -1,7 +1,7 @@
 """add_password_hash_and_recommendation_columns
 
 Revision ID: 488350b719ed
-Revises: de571193d02e
+Revises: 90866914a6fc
 Create Date: 2026-01-20 13:14:21.316722
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '488350b719ed'
-down_revision: Union[str, None] = 'de571193d02e'
+down_revision: Union[str, None] = '90866914a6fc'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

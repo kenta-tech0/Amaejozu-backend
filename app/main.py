@@ -19,6 +19,7 @@ from app.database import get_db, engine, Base
 from app.auth import router as auth_router
 from app.routers.notification import router as notification_router
 from app.routers.watchlist import router as watchlist_router
+from app.routers.user import router as user_router
 
 # 楽天API連携
 from app.services.rakuten_api import (
@@ -112,6 +113,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(notification_router)
 app.include_router(watchlist_router)
+app.include_router(user_router)  # ユーザー設定API
 
 
 # ============================================
