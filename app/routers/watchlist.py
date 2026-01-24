@@ -3,8 +3,8 @@ Watchlist API エンドポイント
 """
 
 import uuid
+import logging
 from datetime import datetime
-from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -14,6 +14,7 @@ from app.models.product import Product
 from app.models.price_history import PriceHistory
 from app.schemas.watchlist import (
     WatchlistCreateRequest,
+    WatchlistCreateWithProductRequest,
     WatchlistResponse,
     WatchlistItemResponse,
     ProductInWatchlist,
@@ -21,6 +22,8 @@ from app.schemas.watchlist import (
     PriceHistoryItem,
     MessageResponse,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/watchlist", tags=["Watchlist"])
 
@@ -116,6 +119,27 @@ def get_watchlist(db: Session = Depends(get_db)):
 
 @router.delete("/{watchlist_id}", response_model=MessageResponse)
 def remove_from_watchlist(watchlist_id: str, db: Session = Depends(get_db)):
+    """ウォッチリストから商品を削除"""
+    watchlist_item = (
+        db.query(Watchlist)
+        .filter(Watchlist.id == watchlist_id, Watchlist.user_id == TEMP_USER_ID)
+        .first()
+    )
+
+    if not watchlist_item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="ウォッチリストアイテムが見つかりません",
+        )
+
+    db.delete(watchlist_item)
+    db.commit()
+
+    return MessageResponse(message="ウォッチリストから削除しました")
+
+
+@router.get("/{watchlist_id}/price-history", response_model=PriceHistoryResponse)
+def get_price_history(watchlist_id: str, db: Session = Depends(get_db)):
     """ウォッチリストアイテムの価格履歴を取得"""
     watchlist_item = (
         db.query(Watchlist)
@@ -145,3 +169,104 @@ def remove_from_watchlist(watchlist_id: str, db: Session = Depends(get_db)):
     ]
 
     return PriceHistoryResponse(price_history=result)
+
+
+@router.post(
+    "/with-product",
+    response_model=WatchlistItemResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_to_watchlist_with_product(
+    request: WatchlistCreateWithProductRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    商品データ付きでウォッチリストに追加
+
+    楽天API検索結果から直接ウォッチリストに追加する場合に使用。
+    商品がDBに存在しなければ自動で保存（UPSERT）する。
+    """
+    product_data = request.product
+
+    # 楽天商品IDで既存商品を検索
+    existing_product = (
+        db.query(Product)
+        .filter(Product.rakuten_product_id == product_data.rakuten_product_id)
+        .first()
+    )
+
+    if existing_product:
+        # 既存商品を更新（価格等の最新情報を反映）
+        existing_product.name = product_data.name
+        existing_product.current_price = product_data.price
+        existing_product.image_url = product_data.image_url
+        existing_product.product_url = product_data.product_url
+        existing_product.affiliate_url = product_data.affiliate_url
+        existing_product.review_score = product_data.review_average
+        existing_product.review_count = product_data.review_count
+        existing_product.updated_at = datetime.utcnow()
+        product = existing_product
+        logger.info(f"商品を更新: {product.id} - {product.name}")
+    else:
+        # 新規商品を作成
+        product = Product(
+            id=str(uuid.uuid4()),
+            rakuten_product_id=product_data.rakuten_product_id,
+            name=product_data.name,
+            current_price=product_data.price,
+            original_price=product_data.price,
+            lowest_price=product_data.price,
+            image_url=product_data.image_url,
+            product_url=product_data.product_url,
+            affiliate_url=product_data.affiliate_url,
+            review_score=product_data.review_average,
+            review_count=product_data.review_count,
+        )
+        db.add(product)
+        logger.info(f"商品を新規作成: {product.id} - {product.name}")
+
+    db.flush()  # product.idを確定
+
+    # 重複チェック（同一ユーザー＆商品の組み合わせ）
+    existing_watchlist = (
+        db.query(Watchlist)
+        .filter(
+            Watchlist.user_id == TEMP_USER_ID,
+            Watchlist.product_id == product.id,
+        )
+        .first()
+    )
+
+    if existing_watchlist:
+        db.commit()  # 商品更新は保存
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="この商品は既にウォッチリストに追加されています",
+        )
+
+    # ウォッチリストに追加
+    watchlist_item = Watchlist(
+        id=str(uuid.uuid4()),
+        user_id=TEMP_USER_ID,
+        product_id=product.id,
+        target_price=request.target_price,
+        notify_any_drop=True,
+    )
+
+    db.add(watchlist_item)
+    db.commit()
+    db.refresh(watchlist_item)
+
+    logger.info(f"ウォッチリストに追加: {watchlist_item.id}")
+
+    return WatchlistItemResponse(
+        id=watchlist_item.id,
+        product=ProductInWatchlist(
+            id=product.id,
+            name=product.name,
+            current_price=product.current_price,
+            image_url=product.image_url,
+        ),
+        target_price=watchlist_item.target_price,
+        added_at=watchlist_item.created_at,
+    )
