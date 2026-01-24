@@ -1,7 +1,7 @@
 """
 認証API - ユーザー登録・ログイン・認証
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Header
+from fastapi import APIRouter, Depends, HTTPException, status, Header, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from datetime import datetime, timedelta
@@ -189,13 +189,13 @@ def get_current_user(authorization: Optional[str] = Header(None), db: Session = 
 def login(request: LoginRequest, db: Session = Depends(get_db)):
     """ユーザーログイン"""
     user = db.query(User).filter(User.email == request.email).first()
-    
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="メールアドレスまたはパスワードが正しくありません"
         )
-    
+
     if not verify_password(request.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

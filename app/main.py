@@ -3,8 +3,10 @@ FastAPI メインアプリケーション
 Amaejozu - メンズコスメ価格下落通知アプリ
 """
 
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from contextlib import asynccontextmanager
@@ -12,7 +14,11 @@ from typing import List, Optional
 import logging
 import time
 from datetime import datetime
+import os
 from dotenv import load_dotenv
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from app.rate_limiter import limiter
 
 load_dotenv()
 
@@ -143,6 +149,10 @@ app = FastAPI(
     ],
 )
 
+# レート制限をアプリに登録
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # ============================================
 # レスポンスタイム計測ミドルウェア
 # ============================================
@@ -174,6 +184,19 @@ app.add_middleware(
     expose_headers=["*"],
     max_age=3600,
 )
+
+# ============================================
+# 本番環境でのセキュリティ設定
+# ============================================
+if os.getenv("ENVIRONMENT") == "production":
+    # 信頼できるホストの制限
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=[
+            "aps-step3-2-fk-b4dhgxaxeed5a4h3.canadacentral-01.azurewebsites.net",
+            "localhost",
+        ]
+    )
 
 # ルータ登録
 app.include_router(auth_router)
