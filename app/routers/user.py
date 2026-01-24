@@ -69,7 +69,7 @@ class NotificationSettingsUpdateRequest(BaseModel):
         description="通知頻度（instant/daily/weekly）"
     )
 
-  class Config:
+    class Config:
         json_schema_extra = {
             "example": {
                 "email_notifications": True,
@@ -85,6 +85,11 @@ class MessageResponse(BaseModel):
 # ============================================
 # ルーター設定
 # ============================================
+
+router = APIRouter(
+    prefix="/api/user",
+    tags=["user-settings"]
+)
 
 @router.get(
     "/profile",
