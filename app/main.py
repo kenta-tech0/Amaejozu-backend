@@ -88,9 +88,58 @@ async def lifespan(app: FastAPI):
 # ============================================
 app = FastAPI(
     title="Amaejozu API",
-    description="メンズコスメ価格下落通知アプリ - 楽天市場連携",
+    description="""
+## 概要
+メンズコスメ価格下落通知アプリ「Amaejozu」のバックエンドAPIです。
+
+## 主な機能
+- 🔐 **認証**: ユーザー登録・ログイン・JWT認証
+- 🔍 **商品検索**: 楽天市場APIと連携した商品検索
+- 📋 **ウォッチリスト**: 気になる商品の価格追跡
+- 🔔 **通知**: 価格下落時のメール通知
+- ⚙️ **ユーザー設定**: プロフィール・通知設定の管理
+
+## 認証方法
+1. `/auth/signup` でユーザー登録
+2. `/auth/login` でログインしてトークンを取得
+3. リクエストヘッダーに `Authorization: Bearer {token}` を付与
+
+## エラーレスポンス
+| ステータスコード | 説明 |
+|-----------------|------|
+| 400 | リクエストが不正 |
+| 401 | 認証が必要 |
+| 404 | リソースが見つからない |
+| 500 | サーバーエラー |
+""",
     version="1.0.0",
     lifespan=lifespan,
+    openapi_tags=[
+        {
+            "name": "auth",
+            "description": "認証関連のエンドポイント（ログイン・サインアップ・ユーザー情報取得）",
+        },
+        {
+            "name": "Watchlist",
+            "description": "ウォッチリスト管理（商品の追加・削除・一覧取得）",
+        },
+        {
+            "name": "user-settings",
+            "description": "ユーザー設定（プロフィール・パスワード・通知設定）",
+        },
+        {
+            "name": "notifications",
+            "description": "通知関連のエンドポイント",
+        },
+        {
+            "name": "products",
+            "description": "商品検索・一覧取得",
+        },
+        {
+            "name": "health",
+            "description": "ヘルスチェック",
+        },
+    ],
 )
 
 # CORS設定
