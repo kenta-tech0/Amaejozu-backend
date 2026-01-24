@@ -3,8 +3,8 @@ Watchlist API - ウォッチリスト管理
 お気に入り商品の追加・削除・一覧取得
 """
 import uuid
+import logging
 from datetime import datetime
-from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -16,6 +16,7 @@ from app.models.user import User
 from app.auth import get_current_user
 from app.schemas.watchlist import (
     WatchlistCreateRequest,
+    WatchlistCreateWithProductRequest,
     WatchlistResponse,
     WatchlistItemResponse,
     ProductInWatchlist,
@@ -24,7 +25,7 @@ from app.schemas.watchlist import (
     MessageResponse,
 )
 
-router = APIRouter(prefix="/api/watchlist", tags=["Watchlist"])
+logger = logging.getLogger(__name__)
 
 @router.post(
     "",
