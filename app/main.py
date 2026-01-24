@@ -12,6 +12,7 @@ from sqlalchemy import text
 from contextlib import asynccontextmanager
 from typing import List, Optional
 import logging
+import time
 from datetime import datetime
 import os
 from dotenv import load_dotenv
@@ -151,6 +152,21 @@ app = FastAPI(
 # レート制限をアプリに登録
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# ============================================
+# レスポンスタイム計測ミドルウェア
+# ============================================
+@app.middleware("http")
+async def add_process_time_header(request, call_next):
+    """リクエストの処理時間を計測してヘッダーに追加"""
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = f"{process_time:.4f}"
+    # 500ms以上かかった場合は警告ログ
+    if process_time > 0.5:
+        logger.warning(f"Slow request: {request.url.path} took {process_time:.4f}s")
+    return response
 
 # CORS設定
 app.add_middleware(

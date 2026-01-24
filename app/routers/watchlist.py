@@ -6,7 +6,7 @@ import uuid
 import logging
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models.watchlist import Watchlist
@@ -195,22 +195,25 @@ def get_watchlist(
     current_user: User = Depends(get_current_user)
 ):
     """ウォッチリスト一覧を取得"""
+    # joinedloadでProductを一緒に取得（N+1問題解消）
     watchlist_items = (
-        db.query(Watchlist).filter(Watchlist.user_id == current_user.id).all()
+        db.query(Watchlist)
+        .options(joinedload(Watchlist.product))
+        .filter(Watchlist.user_id == current_user.id)
+        .all()
     )
 
     result = []
     for item in watchlist_items:
-        product = db.query(Product).filter(Product.id == item.product_id).first()
-        if product:
+        if item.product:
             result.append(
                 WatchlistItemResponse(
                     id=item.id,
                     product=ProductInWatchlist(
-                        id=product.id,
-                        name=product.name,
-                        current_price=product.current_price,
-                        image_url=product.image_url,
+                        id=item.product.id,
+                        name=item.product.name,
+                        current_price=item.product.current_price,
+                        image_url=item.product.image_url,
                     ),
                     target_price=item.target_price,
                     added_at=item.created_at,
@@ -218,7 +221,6 @@ def get_watchlist(
             )
 
     return WatchlistResponse(watchlist=result)
-
 
 @router.delete(
     "/{watchlist_id}",
