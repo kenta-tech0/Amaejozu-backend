@@ -39,7 +39,7 @@ def add_to_watchlist(
     ウォッチリストに商品を追加
     """
     # 商品の存在確認
-    product = db.query(Product).filter(Product.id == request.product_id).first()
+     product = db.query(Product).filter(Product.id == request.product_id).first()
     if not product:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="商品が見つかりません"
@@ -126,7 +126,7 @@ def remove_from_watchlist(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
+     """
     ウォッチリストからアイテムを削除
     """
     watchlist_item = (
