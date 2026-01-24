@@ -32,6 +32,9 @@ bcrypt==4.1.2
 # Rate Limiting
 slowapi==0.1.9
 
+# Scheduler
+APScheduler==3.10.4
+
 # Azure Services
 azure-identity==1.19.0
 openai==1.59.5

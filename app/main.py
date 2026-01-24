@@ -53,6 +53,9 @@ from app.models.category import Category
 # キャッシュサービス
 from app.services.cache_service import product_cache
 
+# スケジューラーサービス
+from app.services.scheduler_service import start_scheduler, stop_scheduler, get_scheduler_status
+
 # ログ設定
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -84,7 +87,21 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"❌ Database connection test failed: {e}")
 
+    # スケジューラー開始
+    try:
+        start_scheduler()
+        logger.info("✅ バッチスケジューラー開始")
+    except Exception as e:
+        logger.error(f"❌ スケジューラー開始失敗: {e}")
+
     yield
+
+    # スケジューラー停止
+    try:
+        stop_scheduler()
+        logger.info("✅ バッチスケジューラー停止")
+    except Exception as e:
+        logger.error(f"❌ スケジューラー停止エラー: {e}")
 
     logger.info("👋 Amaejozu Backend shutting down...")
     engine.dispose()
@@ -613,6 +630,23 @@ async def get_cache_stats():
     return {
         "status": "ok",
         "cache": product_cache.get_stats(),
+    }
+
+
+# ============================================
+# スケジューラー統計エンドポイント（管理用）
+# ============================================
+@app.get("/api/scheduler/status")
+async def get_scheduler_status_endpoint():
+    """
+    スケジューラーの状態を取得（管理・モニタリング用）
+
+    Returns:
+        スケジューラーの実行状態とジョブ一覧
+    """
+    return {
+        "status": "ok",
+        "scheduler": get_scheduler_status(),
     }
 
 
