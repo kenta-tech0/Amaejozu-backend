@@ -12,6 +12,8 @@ from app.database import get_db
 from app.models.watchlist import Watchlist
 from app.models.product import Product
 from app.models.price_history import PriceHistory
+from app.models.user import User
+from app.auth import get_current_user
 from app.schemas.watchlist import (
     WatchlistCreateRequest,
     WatchlistCreateWithProductRequest,
@@ -27,14 +29,15 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/watchlist", tags=["Watchlist"])
 
-# 仮のユーザーID（認証実装後に置き換え）
-TEMP_USER_ID = "test-user-001"
-
 
 @router.post(
     "", response_model=WatchlistItemResponse, status_code=status.HTTP_201_CREATED
 )
-def add_to_watchlist(request: WatchlistCreateRequest, db: Session = Depends(get_db)):
+def add_to_watchlist(
+    request: WatchlistCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
     ウォッチリストに商品を追加
     """
@@ -49,7 +52,7 @@ def add_to_watchlist(request: WatchlistCreateRequest, db: Session = Depends(get_
     existing = (
         db.query(Watchlist)
         .filter(
-            Watchlist.user_id == TEMP_USER_ID,
+            Watchlist.user_id == current_user.id,
             Watchlist.product_id == request.product_id,
         )
         .first()
@@ -64,7 +67,7 @@ def add_to_watchlist(request: WatchlistCreateRequest, db: Session = Depends(get_
     # ウォッチリストに追加
     watchlist_item = Watchlist(
         id=str(uuid.uuid4()),
-        user_id=TEMP_USER_ID,
+        user_id=current_user.id,
         product_id=request.product_id,
         target_price=request.target_price,
         notify_any_drop=True,
@@ -88,12 +91,15 @@ def add_to_watchlist(request: WatchlistCreateRequest, db: Session = Depends(get_
 
 
 @router.get("", response_model=WatchlistResponse)
-def get_watchlist(db: Session = Depends(get_db)):
+def get_watchlist(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
     ウォッチリスト一覧を取得
     """
     watchlist_items = (
-        db.query(Watchlist).filter(Watchlist.user_id == TEMP_USER_ID).all()
+        db.query(Watchlist).filter(Watchlist.user_id == current_user.id).all()
     )
 
     result = []
@@ -118,11 +124,17 @@ def get_watchlist(db: Session = Depends(get_db)):
 
 
 @router.delete("/{watchlist_id}", response_model=MessageResponse)
-def remove_from_watchlist(watchlist_id: str, db: Session = Depends(get_db)):
-    """ウォッチリストから商品を削除"""
+def remove_from_watchlist(
+    watchlist_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    ウォッチリストからアイテムを削除
+    """
     watchlist_item = (
         db.query(Watchlist)
-        .filter(Watchlist.id == watchlist_id, Watchlist.user_id == TEMP_USER_ID)
+        .filter(Watchlist.id == watchlist_id, Watchlist.user_id == current_user.id)
         .first()
     )
 
@@ -132,6 +144,7 @@ def remove_from_watchlist(watchlist_id: str, db: Session = Depends(get_db)):
             detail="ウォッチリストアイテムが見つかりません",
         )
 
+    # 削除処理
     db.delete(watchlist_item)
     db.commit()
 
@@ -139,11 +152,18 @@ def remove_from_watchlist(watchlist_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{watchlist_id}/price-history", response_model=PriceHistoryResponse)
-def get_price_history(watchlist_id: str, db: Session = Depends(get_db)):
-    """ウォッチリストアイテムの価格履歴を取得"""
+def get_price_history(
+    watchlist_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    ウォッチリストアイテムの価格履歴を取得
+    """
+    # ウォッチリストアイテムの存在確認（所有権チェック含む）
     watchlist_item = (
         db.query(Watchlist)
-        .filter(Watchlist.id == watchlist_id, Watchlist.user_id == TEMP_USER_ID)
+        .filter(Watchlist.id == watchlist_id, Watchlist.user_id == current_user.id)
         .first()
     )
 
@@ -153,6 +173,7 @@ def get_price_history(watchlist_id: str, db: Session = Depends(get_db)):
             detail="ウォッチリストアイテムが見つかりません",
         )
 
+    # 価格履歴を取得
     price_histories = (
         db.query(PriceHistory)
         .filter(PriceHistory.product_id == watchlist_item.product_id)
@@ -179,6 +200,7 @@ def get_price_history(watchlist_id: str, db: Session = Depends(get_db)):
 def add_to_watchlist_with_product(
     request: WatchlistCreateWithProductRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     商品データ付きでウォッチリストに追加
@@ -231,7 +253,7 @@ def add_to_watchlist_with_product(
     existing_watchlist = (
         db.query(Watchlist)
         .filter(
-            Watchlist.user_id == TEMP_USER_ID,
+            Watchlist.user_id == current_user.id,
             Watchlist.product_id == product.id,
         )
         .first()
@@ -247,7 +269,7 @@ def add_to_watchlist_with_product(
     # ウォッチリストに追加
     watchlist_item = Watchlist(
         id=str(uuid.uuid4()),
-        user_id=TEMP_USER_ID,
+        user_id=current_user.id,
         product_id=product.id,
         target_price=request.target_price,
         notify_any_drop=True,
