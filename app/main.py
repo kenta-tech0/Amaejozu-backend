@@ -101,6 +101,7 @@ app.add_middleware(
         "http://localhost:8000",
         "http://frontend:3000",
         "http://127.0.0.1:3000",
+        "https://aps-step3-2-fk-b4dhgxaxeed5a4h3.canadacentral-01.azurewebsites.net",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
