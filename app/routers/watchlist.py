@@ -27,6 +27,8 @@ from app.schemas.watchlist import (
 
 logger = logging.getLogger(__name__)
 
+router = APIRouter(prefix="/api/watchlist", tags=["Watchlist"])
+
 @router.post(
     "",
     response_model=WatchlistItemResponse,
