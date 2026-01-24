@@ -21,8 +21,8 @@ class Product(Base):
     __tablename__ = "products"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    brand_id: Mapped[str] = mapped_column(String(36), ForeignKey("brands.id"), nullable=False, index=True)
-    category_id: Mapped[str] = mapped_column(String(36), ForeignKey("categories.id"), nullable=False, index=True)
+    brand_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("brands.id"), nullable=True, index=True)
+    category_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("categories.id"), nullable=True, index=True)
     rakuten_item_code: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(500), nullable=False)
     image_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
@@ -33,7 +33,7 @@ class Product(Base):
     lowest_price: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     discount_rate: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     is_on_sale: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    checked_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    checked_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     review_score: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     review_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     ranking: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
