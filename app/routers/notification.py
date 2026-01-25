@@ -4,7 +4,7 @@
 """
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.services.email_service import email_service
@@ -18,14 +18,15 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 class TestEmailRequest(BaseModel):
     """テストメール送信リクエスト"""
-    email: EmailStr = Field(..., description="送信先メールアドレス", example="test@example.com")
+    email: EmailStr = Field(..., description="送信先メールアドレス")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "email": "test@example.com"
             }
         }
+    )
 
 
 class TestEmailResponse(BaseModel):

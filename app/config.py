@@ -1,5 +1,5 @@
 """Application configuration """
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Amaejozu"
@@ -14,8 +14,9 @@ class Settings(BaseSettings):
     AZURE_OPENAI_KEY: str
     RESEND_API_KEY: str
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=True
+    )
 
 settings = Settings()

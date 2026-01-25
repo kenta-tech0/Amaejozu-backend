@@ -5,7 +5,7 @@ User Settings API - ユーザー設定管理
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 
 from app.database import get_db
@@ -24,20 +24,20 @@ class ProfileResponse(BaseModel):
     name: str = Field(..., description="ニックネーム")
     created_at: str = Field(..., description="登録日時")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProfileUpdateRequest(BaseModel):
     """プロフィール更新リクエスト"""
     name: Optional[str] = Field(None, min_length=1, max_length=100, description="ニックネーム")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "新しいニックネーム"
             }
         }
+    )
 
 
 class PasswordChangeRequest(BaseModel):
@@ -45,13 +45,14 @@ class PasswordChangeRequest(BaseModel):
     current_password: str = Field(..., min_length=1, description="現在のパスワード")
     new_password: str = Field(..., min_length=8, max_length=100, description="新しいパスワード（8文字以上）")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "current_password": "currentpass123",
                 "new_password": "newsecurepass456"
             }
         }
+    )
 
 
 class NotificationSettingsResponse(BaseModel):
@@ -64,18 +65,19 @@ class NotificationSettingsUpdateRequest(BaseModel):
     """通知設定更新リクエスト"""
     email_notifications: Optional[bool] = Field(None, description="メール通知の有効/無効")
     notification_frequency: Optional[str] = Field(
-        None, 
+        None,
         pattern="^(instant|daily|weekly)$",
         description="通知頻度（instant/daily/weekly）"
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "email_notifications": True,
                 "notification_frequency": "daily"
             }
         }
+    )
 
 class MessageResponse(BaseModel):
     """汎用メッセージレスポンス"""

@@ -3,7 +3,7 @@ Watchlist API スキーマ定義
 """
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 # ============================================
@@ -45,8 +45,7 @@ class ProductInWatchlist(BaseModel):
     current_price: int
     image_url: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class WatchlistItemResponse(BaseModel):
@@ -56,8 +55,7 @@ class WatchlistItemResponse(BaseModel):
     target_price: Optional[int] = None
     added_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class WatchlistResponse(BaseModel):
@@ -70,8 +68,7 @@ class PriceHistoryItem(BaseModel):
     price: int
     recorded_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PriceHistoryResponse(BaseModel):
