@@ -211,6 +211,7 @@ if os.getenv("ENVIRONMENT") == "production":
         TrustedHostMiddleware,
         allowed_hosts=[
             "aps-step3-2-fk-b4dhgxaxeed5a4h3.canadacentral-01.azurewebsites.net",
+            "aps-step3-2-fk-2-f7f7aphddkhuh3dn.canadacentral-01.azurewebsites.net",
             "localhost",
         ]
     )
