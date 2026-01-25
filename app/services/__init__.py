@@ -11,6 +11,7 @@ from .rakuten_api import (
     Product,
     SearchResponse,
 )
+from .email import send_password_reset_email
 
 __all__ = [
     "search_products",
@@ -20,4 +21,5 @@ __all__ = [
     "APIError",
     "Product",
     "SearchResponse",
+    "send_password_reset_email",
 ]

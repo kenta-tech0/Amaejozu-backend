@@ -1,7 +1,7 @@
 """add password_hash to users
 
 Revision ID: 90866914a6fc
-Revises: 372441cddb3f
+Revises: de571193d02e
 Create Date: 2026-01-19 08:00:14.183572
 
 """
@@ -14,7 +14,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = "90866914a6fc"
-down_revision: Union[str, Sequence[str], None] = "372441cddb3f"
+down_revision: Union[str, Sequence[str], None] = "de571193d02e"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

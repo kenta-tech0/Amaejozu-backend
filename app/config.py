@@ -14,6 +14,12 @@ class Settings(BaseSettings):
     AZURE_OPENAI_KEY: str
     RESEND_API_KEY: str
 
+    # Frontend
+    FRONTEND_URL: str = "http://localhost:3000"
+
+    # Email
+    RESEND_FROM_EMAIL: str = "Amaejozu <onboarding@resend.dev>"
+
     class Config:
         env_file = ".env"
         case_sensitive = True

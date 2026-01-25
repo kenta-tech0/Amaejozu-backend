@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from .watchlist import Watchlist
     from .notification_history import Notification
     from .user_interest import UserInterest
+    from .password_reset_token import PasswordResetToken
 
 
 class User(Base):
@@ -50,4 +51,7 @@ class User(Base):
     )
     user_interests: Mapped[list["UserInterest"]] = relationship(
         "UserInterest", back_populates="user", cascade="all, delete-orphan"
+    )
+    password_reset_tokens: Mapped[list["PasswordResetToken"]] = relationship(
+        "PasswordResetToken", back_populates="user", cascade="all, delete-orphan"
     )

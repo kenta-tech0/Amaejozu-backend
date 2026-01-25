@@ -19,6 +19,7 @@ from .alert import Alert
 from .notification_history import Notification
 from .brand_follow import BrandFollow
 from .user_interest import UserInterest
+from .password_reset_token import PasswordResetToken
 
 __all__ = [
     "Base",
@@ -32,4 +33,5 @@ __all__ = [
     "Notification",
     "BrandFollow",
     "UserInterest",
+    "PasswordResetToken",
 ]
