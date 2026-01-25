@@ -3,7 +3,7 @@
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Header, Request
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime, timedelta
 from typing import Optional
 import jwt
@@ -26,30 +26,32 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7日間
 
 class LoginRequest(BaseModel):
     """ログインリクエスト"""
-    email: str = Field(..., description="メールアドレス", example="user@example.com")
-    password: str = Field(..., description="パスワード", example="password123")
+    email: str = Field(..., description="メールアドレス")
+    password: str = Field(..., description="パスワード")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "email": "user@example.com",
                 "password": "password123"
             }
         }
+    )
 
 
 class SignupRequest(BaseModel):
     """サインアップリクエスト"""
-    email: str = Field(..., description="メールアドレス", example="newuser@example.com")
-    password: str = Field(..., min_length=8, description="パスワード（8文字以上）", example="securepass123")
+    email: str = Field(..., description="メールアドレス")
+    password: str = Field(..., min_length=8, description="パスワード（8文字以上）")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "email": "newuser@example.com",
                 "password": "securepass123"
             }
         }
+    )
 
 
 class UserResponse(BaseModel):
