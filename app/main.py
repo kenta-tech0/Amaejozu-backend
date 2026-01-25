@@ -371,6 +371,103 @@ async def search_products_external(
         logger.error(f"予期しないエラー: {str(e)}")
         raise HTTPException(status_code=500, detail=f"サーバーエラー: {str(e)}")
 
+# ============================================
+# DB商品検索エンドポイント（Issue #4）
+# ============================================
+@app.get("/api/products/search")
+async def search_products_in_db(
+    keyword: Optional[str] = Query(None, description="検索キーワード（商品名）"),
+    category_id: Optional[str] = Query(None, description="カテゴリID"),
+    brand_id: Optional[str] = Query(None, description="ブランドID"),
+    min_price: Optional[int] = Query(None, ge=0, description="最低価格"),
+    max_price: Optional[int] = Query(None, ge=0, description="最高価格"),
+    sort: Optional[str] = Query(
+        None, description="ソート順（price_asc, price_desc, popular）"
+    ),
+    page: int = Query(1, ge=1, description="ページ番号"),
+    limit: int = Query(20, ge=1, le=100, description="1ページあたりの取得件数"),
+    db: Session = Depends(get_db),
+):
+    """
+    DB内の商品検索エンドポイント（Issue #4）
+    """
+    try:
+        logger.info(
+            f"DB検索リクエスト: keyword={keyword}, category_id={category_id}, brand_id={brand_id}"
+        )
+
+        # ベースクエリ
+        query = db.query(ProductModel)
+
+        # キーワード検索（商品名の部分一致）
+        if keyword:
+            query = query.filter(ProductModel.name.ilike(f"%{keyword}%"))
+
+        # カテゴリフィルタ
+        if category_id:
+            query = query.filter(ProductModel.category_id == category_id)
+
+        # ブランドフィルタ
+        if brand_id:
+            query = query.filter(ProductModel.brand_id == brand_id)
+
+        # 価格範囲フィルタ
+        if min_price is not None:
+            query = query.filter(ProductModel.current_price >= min_price)
+        if max_price is not None:
+            query = query.filter(ProductModel.current_price <= max_price)
+
+        # ソート
+        if sort == "price_asc":
+            query = query.order_by(ProductModel.current_price.asc())
+        elif sort == "price_desc":
+            query = query.order_by(ProductModel.current_price.desc())
+        elif sort == "popular":
+            query = query.order_by(ProductModel.review_count.desc().nullslast())
+        else:
+            query = query.order_by(ProductModel.updated_at.desc())
+
+        # 総件数を取得
+        total = query.count()
+
+        # ページネーション
+        offset = (page - 1) * limit
+        products = query.offset(offset).limit(limit).all()
+
+        # レスポンス用にデータを整形
+        product_list = []
+        for product in products:
+            product_list.append(
+                {
+                    "id": product.id,
+                    "name": product.name,
+                    "brand_id": product.brand_id,
+                    "category_id": product.category_id,
+                    "current_price": product.current_price,
+                    "original_price": product.original_price,
+                    "discount_rate": product.discount_rate,
+                    "is_on_sale": product.is_on_sale,
+                    "image_url": product.image_url,
+                    "product_url": product.product_url,
+                    "review_score": product.review_score,
+                    "review_count": product.review_count,
+                }
+            )
+
+        logger.info(f"DB検索成功: {len(product_list)}件取得（総数: {total}件）")
+
+        return {
+            "status": "ok",
+            "products": product_list,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "total_pages": (total + limit - 1) // limit,
+        }
+
+    except Exception as e:
+        logger.error(f"DB検索エラー: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"サーバーエラー: {str(e)}")
 
 @app.get("/api/products/{product_id}")
 async def get_product(
@@ -485,105 +582,6 @@ async def list_products(
         }
     except Exception as e:
         logger.error(f"商品一覧取得エラー: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"サーバーエラー: {str(e)}")
-
-
-# ============================================
-# DB商品検索エンドポイント（Issue #4）
-# ============================================
-@app.get("/api/products/search")
-async def search_products_in_db(
-    keyword: Optional[str] = Query(None, description="検索キーワード（商品名）"),
-    category_id: Optional[str] = Query(None, description="カテゴリID"),
-    brand_id: Optional[str] = Query(None, description="ブランドID"),
-    min_price: Optional[int] = Query(None, ge=0, description="最低価格"),
-    max_price: Optional[int] = Query(None, ge=0, description="最高価格"),
-    sort: Optional[str] = Query(
-        None, description="ソート順（price_asc, price_desc, popular）"
-    ),
-    page: int = Query(1, ge=1, description="ページ番号"),
-    limit: int = Query(20, ge=1, le=100, description="1ページあたりの取得件数"),
-    db: Session = Depends(get_db),
-):
-    """
-    DB内の商品検索エンドポイント（Issue #4）
-    """
-    try:
-        logger.info(
-            f"DB検索リクエスト: keyword={keyword}, category_id={category_id}, brand_id={brand_id}"
-        )
-
-        # ベースクエリ
-        query = db.query(ProductModel)
-
-        # キーワード検索（商品名の部分一致）
-        if keyword:
-            query = query.filter(ProductModel.name.ilike(f"%{keyword}%"))
-
-        # カテゴリフィルタ
-        if category_id:
-            query = query.filter(ProductModel.category_id == category_id)
-
-        # ブランドフィルタ
-        if brand_id:
-            query = query.filter(ProductModel.brand_id == brand_id)
-
-        # 価格範囲フィルタ
-        if min_price is not None:
-            query = query.filter(ProductModel.current_price >= min_price)
-        if max_price is not None:
-            query = query.filter(ProductModel.current_price <= max_price)
-
-        # ソート
-        if sort == "price_asc":
-            query = query.order_by(ProductModel.current_price.asc())
-        elif sort == "price_desc":
-            query = query.order_by(ProductModel.current_price.desc())
-        elif sort == "popular":
-            query = query.order_by(ProductModel.review_count.desc().nullslast())
-        else:
-            query = query.order_by(ProductModel.updated_at.desc())
-
-        # 総件数を取得
-        total = query.count()
-
-        # ページネーション
-        offset = (page - 1) * limit
-        products = query.offset(offset).limit(limit).all()
-
-        # レスポンス用にデータを整形
-        product_list = []
-        for product in products:
-            product_list.append(
-                {
-                    "id": product.id,
-                    "name": product.name,
-                    "brand_id": product.brand_id,
-                    "category_id": product.category_id,
-                    "current_price": product.current_price,
-                    "original_price": product.original_price,
-                    "discount_rate": product.discount_rate,
-                    "is_on_sale": product.is_on_sale,
-                    "image_url": product.image_url,
-                    "product_url": product.product_url,
-                    "review_score": product.review_score,
-                    "review_count": product.review_count,
-                }
-            )
-
-        logger.info(f"DB検索成功: {len(product_list)}件取得（総数: {total}件）")
-
-        return {
-            "status": "ok",
-            "products": product_list,
-            "total": total,
-            "page": page,
-            "limit": limit,
-            "total_pages": (total + limit - 1) // limit,
-        }
-
-    except Exception as e:
-        logger.error(f"DB検索エラー: {str(e)}")
         raise HTTPException(status_code=500, detail=f"サーバーエラー: {str(e)}")
 
 
