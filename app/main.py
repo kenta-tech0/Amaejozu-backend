@@ -213,7 +213,15 @@ if os.getenv("ENVIRONMENT") == "production":
             "aps-step3-2-fk-b4dhgxaxeed5a4h3.canadacentral-01.azurewebsites.net",
             "aps-step3-2-fk-2-f7f7aphddkhuh3dn.canadacentral-01.azurewebsites.net",
             "localhost",
-        ]
+        ]python -c "
+from app.database import engine
+from sqlalchemy import text
+
+with engine.connect() as conn:
+    result = conn.execute(text(\"SHOW INDEX FROM users WHERE Key_name != 'PRIMARY'\"))
+    for row in result:
+        print(row)
+"
     )
 
 # ルータ登録
