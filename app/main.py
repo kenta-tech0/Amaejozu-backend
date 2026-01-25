@@ -3,21 +3,30 @@ FastAPI メインアプリケーション
 Amaejozu - メンズコスメ価格下落通知アプリ
 """
 
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from contextlib import asynccontextmanager
 from typing import List, Optional
 import logging
+import time
 from datetime import datetime
+import os
 from dotenv import load_dotenv
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from app.rate_limiter import limiter
 
 load_dotenv()
 
 from app.database import get_db, engine, Base
-from app.auth import router as auth_router  # 追加
-from app.routers.watchlist import router as watchlist_router  # ウォッチリスト
+from app.auth import router as auth_router
+from app.routers.notification import router as notification_router
+from app.routers.watchlist import router as watchlist_router
+from app.routers.user import router as user_router
 
 # 楽天API連携
 from app.services.rakuten_api import (
@@ -29,10 +38,23 @@ from app.services.rakuten_api import (
     Product,
 )
 
+# OpenAI連携
+from app.services.openai_service import (
+    generate_recommendation,
+    OpenAIServiceError,
+)
+from sqlalchemy.orm import joinedload
+
 # DBモデル
 from app.models.product import Product as ProductModel
 from app.models.brand import Brand
 from app.models.category import Category
+
+# キャッシュサービス
+from app.services.cache_service import product_cache
+
+# スケジューラーサービス
+from app.services.scheduler_service import start_scheduler, stop_scheduler, get_scheduler_status
 
 # ログ設定
 logging.basicConfig(
@@ -65,7 +87,21 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"❌ Database connection test failed: {e}")
 
+    # スケジューラー開始
+    try:
+        start_scheduler()
+        logger.info("✅ バッチスケジューラー開始")
+    except Exception as e:
+        logger.error(f"❌ スケジューラー開始失敗: {e}")
+
     yield
+
+    # スケジューラー停止
+    try:
+        stop_scheduler()
+        logger.info("✅ バッチスケジューラー停止")
+    except Exception as e:
+        logger.error(f"❌ スケジューラー停止エラー: {e}")
 
     logger.info("👋 Amaejozu Backend shutting down...")
     engine.dispose()
@@ -76,10 +112,78 @@ async def lifespan(app: FastAPI):
 # ============================================
 app = FastAPI(
     title="Amaejozu API",
-    description="メンズコスメ価格下落通知アプリ - 楽天市場連携",
+    description="""
+## 概要
+メンズコスメ価格下落通知アプリ「Amaejozu」のバックエンドAPIです。
+
+## 主な機能
+- 🔐 **認証**: ユーザー登録・ログイン・JWT認証
+- 🔍 **商品検索**: 楽天市場APIと連携した商品検索
+- 📋 **ウォッチリスト**: 気になる商品の価格追跡
+- 🔔 **通知**: 価格下落時のメール通知
+- ⚙️ **ユーザー設定**: プロフィール・通知設定の管理
+
+## 認証方法
+1. `/auth/signup` でユーザー登録
+2. `/auth/login` でログインしてトークンを取得
+3. リクエストヘッダーに `Authorization: Bearer {token}` を付与
+
+## エラーレスポンス
+| ステータスコード | 説明 |
+|-----------------|------|
+| 400 | リクエストが不正 |
+| 401 | 認証が必要 |
+| 404 | リソースが見つからない |
+| 500 | サーバーエラー |
+""",
     version="1.0.0",
     lifespan=lifespan,
+    openapi_tags=[
+        {
+            "name": "auth",
+            "description": "認証関連のエンドポイント（ログイン・サインアップ・ユーザー情報取得）",
+        },
+        {
+            "name": "Watchlist",
+            "description": "ウォッチリスト管理（商品の追加・削除・一覧取得）",
+        },
+        {
+            "name": "user-settings",
+            "description": "ユーザー設定（プロフィール・パスワード・通知設定）",
+        },
+        {
+            "name": "notifications",
+            "description": "通知関連のエンドポイント",
+        },
+        {
+            "name": "products",
+            "description": "商品検索・一覧取得",
+        },
+        {
+            "name": "health",
+            "description": "ヘルスチェック",
+        },
+    ],
 )
+
+# レート制限をアプリに登録
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# ============================================
+# レスポンスタイム計測ミドルウェア
+# ============================================
+@app.middleware("http")
+async def add_process_time_header(request, call_next):
+    """リクエストの処理時間を計測してヘッダーに追加"""
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = f"{process_time:.4f}"
+    # 500ms以上かかった場合は警告ログ
+    if process_time > 0.5:
+        logger.warning(f"Slow request: {request.url.path} took {process_time:.4f}s")
+    return response
 
 # CORS設定
 app.add_middleware(
@@ -89,6 +193,7 @@ app.add_middleware(
         "http://localhost:8000",
         "http://frontend:3000",
         "http://127.0.0.1:3000",
+        "https://aps-step3-2-fk-b4dhgxaxeed5a4h3.canadacentral-01.azurewebsites.net",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
@@ -97,10 +202,25 @@ app.add_middleware(
     max_age=3600,
 )
 
-# 追加：authルータ登録
+# ============================================
+# 本番環境でのセキュリティ設定
+# ============================================
+if os.getenv("ENVIRONMENT") == "production":
+    # 信頼できるホストの制限
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=[
+            "aps-step3-2-fk-b4dhgxaxeed5a4h3.canadacentral-01.azurewebsites.net",
+            "aps-step3-2-fk-2-f7f7aphddkhuh3dn.canadacentral-01.azurewebsites.net",
+            "localhost",
+        ]
+    )
+
+# ルータ登録
 app.include_router(auth_router)
-# ウォッチリストルータ登録
+app.include_router(notification_router)
 app.include_router(watchlist_router)
+app.include_router(user_router)  # ユーザー設定API
 
 
 # ============================================
@@ -115,14 +235,15 @@ async def root():
         "status": "running",
         "docs": "/docs",
         "endpoints": {
-            "health": "/app/api/health",
-            "db_health": "/app/api/db/health",
-            "product_search": "/app/api/products/search",
+            "health": "/api/health",
+            "db_health": "/api/db/health",
+            "external_search": "/api/products/external-search",
+            "db_search": "/api/products/search",
         },
     }
 
 
-@app.get("/app/api/health")
+@app.get("/api/health")
 async def health_check():
     """ヘルスチェックエンドポイント"""
     return {
@@ -137,7 +258,7 @@ async def health_check():
 # ============================================
 # データベース関連エンドポイント
 # ============================================
-@app.get("/app/api/db/health")
+@app.get("/api/db/health")
 async def db_health_check(db: Session = Depends(get_db)):
     """データベース接続確認エンドポイント"""
     try:
@@ -155,7 +276,7 @@ async def db_health_check(db: Session = Depends(get_db)):
         return {"status": "error", "message": str(e)}
 
 
-@app.get("/app/api/db/tables")
+@app.get("/api/db/tables")
 async def list_tables(db: Session = Depends(get_db)):
     """データベース内のテーブル一覧を取得"""
     try:
@@ -169,19 +290,20 @@ async def list_tables(db: Session = Depends(get_db)):
 
 
 # ============================================
-# 楽天API 商品検索エンドポイント
+# 楽天API 商品検索エンドポイント（キャッシュ対応）
 # ============================================
-@app.get("/app/api/products/search")
-async def search_products(
+@app.get("/api/products/external-search")
+async def search_products_external(
     keyword: str = Query(..., description="検索キーワード"),
     page: int = Query(1, ge=1, le=100, description="ページ番号"),
     limit: int = Query(20, ge=1, le=30, description="1ページあたりの取得件数"),
     db: Session = Depends(get_db),
 ):
     """
-    商品検索エンドポイント
+    楽天API商品検索エンドポイント（キャッシュ対応）
 
-    楽天APIから商品を検索し、結果を返す
+    1. キャッシュにヒットすれば即座に返す
+    2. キャッシュミス時は楽天APIを呼び出し、結果をキャッシュに保存
 
     Parameters:
         keyword: 検索キーワード
@@ -189,10 +311,26 @@ async def search_products(
         limit: 取得件数（1-30）
 
     Returns:
-        商品リスト、総数、ページ情報
+        商品リスト、総数、ページ情報、キャッシュ状態
     """
     try:
-        logger.info(f"検索リクエスト: keyword={keyword}, page={page}, limit={limit}")
+        # キャッシュキーを生成（キーワード+ページ+リミット）
+        cache_key = f"{keyword}:p{page}:l{limit}"
+
+        # キャッシュをチェック
+        cached_data = product_cache.get(cache_key)
+        if cached_data is not None:
+            logger.info(f"キャッシュヒット: {cache_key}")
+            return {
+                "status": "ok",
+                "products": cached_data["products"],
+                "total": cached_data["total"],
+                "page": page,
+                "limit": limit,
+                "cached": True,
+            }
+
+        logger.info(f"キャッシュミス - 楽天API呼び出し: keyword={keyword}, page={page}, limit={limit}")
 
         # 楽天APIから検索
         result = rakuten_search(keyword, hits=limit, page=page)
@@ -210,14 +348,19 @@ async def search_products(
                 logger.error(f"商品データ処理エラー: {str(e)}")
                 continue
 
-        logger.info(f"検索成功: {len(products)}件取得")
+        total = result.get("count", len(products))
+
+        # キャッシュに保存
+        product_cache.set(cache_key, {"products": products, "total": total})
+        logger.info(f"キャッシュ保存: {cache_key} ({len(products)}件)")
 
         return {
             "status": "ok",
             "products": products,
-            "total": result.get("count", len(products)),
+            "total": total,
             "page": page,
             "limit": limit,
+            "cached": False,
         }
 
     except APIError as e:
@@ -228,64 +371,6 @@ async def search_products(
     except Exception as e:
         logger.error(f"予期しないエラー: {str(e)}")
         raise HTTPException(status_code=500, detail=f"サーバーエラー: {str(e)}")
-
-
-@app.get("/app/api/products/{product_id}")
-async def get_product(product_id: str, db: Session = Depends(get_db)):
-    """
-    商品詳細取得エンドポイント
-
-    Parameters:
-        product_id: 楽天商品ID
-
-    Returns:
-        商品詳細情報
-    """
-    try:
-        # TODO: DBから商品を取得する処理を実装
-        # product = db.query(Product).filter(Product.rakuten_product_id == product_id).first()
-
-        return {
-            "status": "ok",
-            "message": "この機能は実装予定です",
-            "product_id": product_id,
-        }
-    except Exception as e:
-        logger.error(f"商品取得エラー: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"サーバーエラー: {str(e)}")
-
-
-@app.get("/app/api/products")
-async def list_products(
-    skip: int = Query(0, ge=0, description="スキップ件数"),
-    limit: int = Query(20, ge=1, le=100, description="取得件数"),
-    db: Session = Depends(get_db),
-):
-    """
-    商品一覧取得エンドポイント
-
-    Parameters:
-        skip: スキップ件数
-        limit: 取得件数
-
-    Returns:
-        商品一覧
-    """
-    try:
-        # TODO: DBから商品一覧を取得する処理を実装
-        # products = db.query(Product).offset(skip).limit(limit).all()
-
-        return {
-            "status": "ok",
-            "message": "この機能は実装予定です",
-            "skip": skip,
-            "limit": limit,
-            "products": [],
-        }
-    except Exception as e:
-        logger.error(f"商品一覧取得エラー: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"サーバーエラー: {str(e)}")
-
 
 # ============================================
 # DB商品検索エンドポイント（Issue #4）
@@ -385,6 +470,121 @@ async def search_products_in_db(
         logger.error(f"DB検索エラー: {str(e)}")
         raise HTTPException(status_code=500, detail=f"サーバーエラー: {str(e)}")
 
+@app.get("/api/products/{product_id}")
+async def get_product(
+    product_id: str,
+    include_recommendation: bool = Query(True, description="お勧め文を含めるか"),
+    db: Session = Depends(get_db),
+):
+    """
+    商品詳細取得エンドポイント
+
+    Parameters:
+        product_id: 商品ID
+        include_recommendation: お勧め文を含めるか（デフォルト: True）
+
+    Returns:
+        商品詳細情報（お勧め文含む）
+    """
+    try:
+        # DBから商品を取得（リレーション含む）
+        product = (
+            db.query(ProductModel)
+            .options(
+                joinedload(ProductModel.brand),
+                joinedload(ProductModel.category),
+            )
+            .filter(ProductModel.id == product_id)
+            .first()
+        )
+
+        if not product:
+            raise HTTPException(status_code=404, detail="商品が見つかりません")
+
+        # レスポンスデータを構築
+        response_data = {
+            "id": product.id,
+            "name": product.name,
+            "brand": (
+                {"id": product.brand.id, "name": product.brand.name}
+                if product.brand
+                else None
+            ),
+            "category": (
+                {"id": product.category.id, "name": product.category.name}
+                if product.category
+                else None
+            ),
+            "current_price": product.current_price,
+            "original_price": product.original_price,
+            "lowest_price": product.lowest_price,
+            "discount_rate": product.discount_rate,
+            "is_on_sale": product.is_on_sale,
+            "image_url": product.image_url,
+            "product_url": product.product_url,
+            "affiliate_url": product.affiliate_url,
+            "review_score": product.review_score,
+            "review_count": product.review_count,
+        }
+
+        # お勧め文を生成（オプション）
+        if include_recommendation:
+            try:
+                recommendation = generate_recommendation(product, db)
+                if recommendation:
+                    response_data["recommendation"] = {
+                        "text": recommendation.recommendation_text,
+                        "generated_at": recommendation.generated_at.isoformat(),
+                        "is_cached": recommendation.is_cached,
+                    }
+                else:
+                    response_data["recommendation"] = None
+            except OpenAIServiceError as e:
+                logger.warning(f"お勧め文生成をスキップ: {str(e)}")
+                response_data["recommendation"] = None
+        else:
+            response_data["recommendation"] = None
+
+        return {"status": "ok", "product": response_data}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"商品取得エラー: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"サーバーエラー: {str(e)}")
+
+
+@app.get("/api/products")
+async def list_products(
+    skip: int = Query(0, ge=0, description="スキップ件数"),
+    limit: int = Query(20, ge=1, le=100, description="取得件数"),
+    db: Session = Depends(get_db),
+):
+    """
+    商品一覧取得エンドポイント
+
+    Parameters:
+        skip: スキップ件数
+        limit: 取得件数
+
+    Returns:
+        商品一覧
+    """
+    try:
+        # TODO: DBから商品一覧を取得する処理を実装
+        # products = db.query(Product).offset(skip).limit(limit).all()
+
+        return {
+            "status": "ok",
+            "message": "この機能は実装予定です",
+            "skip": skip,
+            "limit": limit,
+            "products": [],
+        }
+    except Exception as e:
+        logger.error(f"商品一覧取得エラー: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"サーバーエラー: {str(e)}")
+
 
 @app.get("/api/categories")
 async def list_categories(db: Session = Depends(get_db)):
@@ -418,6 +618,35 @@ async def list_brands(db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"ブランド取得エラー: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================
+# キャッシュ統計エンドポイント（管理用）
+# ============================================
+@app.get("/api/cache/stats")
+async def get_cache_stats():
+    """キャッシュ統計情報を取得（管理・モニタリング用）"""
+    return {
+        "status": "ok",
+        "cache": product_cache.get_stats(),
+    }
+
+
+# ============================================
+# スケジューラー統計エンドポイント（管理用）
+# ============================================
+@app.get("/api/scheduler/status")
+async def get_scheduler_status_endpoint():
+    """
+    スケジューラーの状態を取得（管理・モニタリング用）
+
+    Returns:
+        スケジューラーの実行状態とジョブ一覧
+    """
+    return {
+        "status": "ok",
+        "scheduler": get_scheduler_status(),
+    }
 
 
 # ============================================

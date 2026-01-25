@@ -24,11 +24,9 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    email: Mapped[str] = mapped_column(
-        String(255), unique=True, nullable=False, index=True
-    )
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    nickname: Mapped[str] = mapped_column(String(100), nullable=True)
+    nickname: Mapped[str] = mapped_column(String(100), nullable=False)
     device_token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     push_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     email_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

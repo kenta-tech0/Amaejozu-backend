@@ -1,5 +1,7 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+.pytest_cache
+.ruff_cache
 *.py[cod]
 
 # C extensions
@@ -33,5 +35,12 @@ venv/
 .vscode/
 .DS_Store
 Thumbs.db
+
 # Azure Functions
 azure_functions/local.settings.json
+
+# SSL certificates
+*.pem
+*.crt
+
+.claude/

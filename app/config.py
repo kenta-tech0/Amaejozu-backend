@@ -1,5 +1,7 @@
-"""Application configuration """
-from pydantic_settings import BaseSettings
+"""Application configuration"""
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Amaejozu"
@@ -20,8 +22,13 @@ class Settings(BaseSettings):
     # Email
     RESEND_FROM_EMAIL: str = "Amaejozu <onboarding@resend.dev>"
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    # Frontend
+    FRONTEND_URL: str = "http://localhost:3000"
+
+    # Email
+    RESEND_FROM_EMAIL: str = "Amaejozu <onboarding@resend.dev>"
+
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
+
 
 settings = Settings()

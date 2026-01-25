@@ -1,7 +1,6 @@
 {
 "name": "FastAPI Dev Container",
 "build": {
-"context": "..",
 "dockerfile": "../Dockerfile"
 },
 "features": {
@@ -17,6 +16,10 @@
     "version": "22",
     "nodeGypDependencies": true,
     "installYarnUsingApt": false
+},
+"ghcr.io/devcontainers/features/docker-in-docker:2": {
+    "version": "latest",
+    "moby": false
 }
 },
 "mounts": [
