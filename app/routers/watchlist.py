@@ -319,11 +319,11 @@ def add_to_watchlist_with_product(
             rakuten_item_code=request.product.rakuten_product_id,
             name=request.product.name,
             image_url=request.product.image_url,
-            product_url=request.product.shop_url,
+            product_url=request.product.product_url,
             affiliate_url=request.product.affiliate_url,
-            current_price=request.product.current_price,
-            original_price=request.product.original_price or request.product.current_price,
-            review_score=request.product.review_score,
+            current_price=request.product.price,
+            original_price=request.product.price or request.product.price,
+            review_score=request.product.review_average,
             review_count=request.product.review_count,
         )
         db.add(product)
