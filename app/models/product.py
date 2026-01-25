@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from .category import Category
     from .price_history import PriceHistory
     from .watchlist import Watchlist
+    from .weekly_ranking import WeeklyRanking
 
 
 class Product(Base):
@@ -53,6 +54,11 @@ class Product(Base):
     )
     watchlists: Mapped[list["Watchlist"]] = relationship(
         "Watchlist",
+        back_populates="product",
+        cascade="all, delete-orphan"
+    )
+    weekly_rankings: Mapped[list["WeeklyRanking"]] = relationship(
+        "WeeklyRanking",
         back_populates="product",
         cascade="all, delete-orphan"
     )

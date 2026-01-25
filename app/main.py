@@ -27,6 +27,7 @@ from app.auth import router as auth_router
 from app.routers.notification import router as notification_router
 from app.routers.watchlist import router as watchlist_router
 from app.routers.user import router as user_router
+from app.routers.ranking import router as ranking_router
 
 # 楽天API連携
 from app.services.rakuten_api import (
@@ -160,6 +161,10 @@ app = FastAPI(
             "description": "商品検索・一覧取得",
         },
         {
+            "name": "rankings",
+            "description": "週間TOP10ランキング（ウォッチリスト集計 + AI推薦文）",
+        },
+        {
             "name": "health",
             "description": "ヘルスチェック",
         },
@@ -220,6 +225,7 @@ app.include_router(auth_router)
 app.include_router(notification_router)
 app.include_router(watchlist_router)
 app.include_router(user_router)  # ユーザー設定API
+app.include_router(ranking_router)  # 週間TOP10ランキングAPI
 
 
 # ============================================
