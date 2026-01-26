@@ -285,3 +285,85 @@ def remove_from_watchlist(
     db.commit()
 
     return MessageResponse(message="ウォッチリストから削除しました")
+
+
+@router.post(
+    "/with-product",
+    response_model=WatchlistItemResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="商品データ付きでウォッチリストに追加",
+    description="""
+楽天APIから取得した商品データを使って、ウォッチリストに追加します。
+商品がDBに存在しない場合は自動的に登録されます。
+
+## 認証
+`Authorization: Bearer {token}` ヘッダーが必要です。
+""",
+)
+def add_to_watchlist_with_product(
+    request: WatchlistCreateWithProductRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """楽天API商品をウォッチリストに追加（商品がなければ自動登録）"""
+    
+    # 楽天商品コードで既存商品を検索
+    product = db.query(Product).filter(
+        Product.rakuten_item_code == request.product.rakuten_product_id
+    ).first()
+    
+    # 商品がなければ新規登録
+    if not product:
+        product = Product(
+            id=str(uuid.uuid4()),
+            rakuten_item_code=request.product.rakuten_product_id,
+            name=request.product.name,
+            image_url=request.product.image_url,
+            product_url=request.product.product_url,
+            affiliate_url=request.product.affiliate_url,
+            current_price=request.product.price,
+            original_price=request.product.price or request.product.price,
+            review_score=request.product.review_average,
+            review_count=request.product.review_count,
+        )
+        db.add(product)
+        db.commit()
+        db.refresh(product)
+        logger.info(f"新規商品を登録: {product.name} (ID: {product.id})")
+    
+    # 重複チェック
+    existing = db.query(Watchlist).filter(
+        Watchlist.user_id == current_user.id,
+        Watchlist.product_id == product.id,
+    ).first()
+    
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="この商品は既にウォッチリストに追加されています",
+        )
+    
+    # ウォッチリストに追加
+    watchlist_item = Watchlist(
+        id=str(uuid.uuid4()),
+        user_id=current_user.id,
+        product_id=product.id,
+        target_price=request.target_price,
+        notify_any_drop=True,
+    )
+    
+    db.add(watchlist_item)
+    db.commit()
+    db.refresh(watchlist_item)
+    
+    return WatchlistItemResponse(
+        id=watchlist_item.id,
+        product=ProductInWatchlist(
+            id=product.id,
+            name=product.name,
+            current_price=product.current_price,
+            image_url=product.image_url,
+        ),
+        target_price=watchlist_item.target_price,
+        added_at=watchlist_item.created_at,
+    )

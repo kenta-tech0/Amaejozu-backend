@@ -13,6 +13,7 @@ from app.models.product import Product
 from app.models.watchlist import Watchlist
 from app.models.price_history import PriceHistory
 from app.services.rakuten_api import search_products, APIError
+from app.services.notification_service import send_price_drop_notifications
 
 # ログ設定
 logging.basicConfig(
@@ -151,6 +152,19 @@ class PriceBatchProcessor:
             if change_info["price_diff"] != 0:
                 self.update_product_price(product, new_price)
                 self.price_changes.append(change_info)
+                
+                # 値下げの場合は通知を送信
+                if change_info["is_price_drop"]:
+                    try:
+                        send_price_drop_notifications(
+                            db=self.db,
+                            product_id=product.id,
+                            old_price=change_info["old_price"],
+                            new_price=change_info["new_price"]
+                        )
+                        logger.info(f"価格下落通知を送信: {product.name[:30]}...")
+                    except Exception as e:
+                        logger.error(f"通知送信エラー: {str(e)}")
             
             self.updated_count += 1
             return True
