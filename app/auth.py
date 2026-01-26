@@ -2,7 +2,7 @@
 認証API - ユーザー登録・ログイン・認証
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Header, Request, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Header, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from datetime import datetime, timedelta
@@ -20,6 +20,7 @@ from app.database import get_db
 from app.models.user import User
 from app.models.password_reset_token import PasswordResetToken
 from app.services.email import send_password_reset_email
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,15 @@ logger = logging.getLogger(__name__)
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60  # 1時間
+
+# パスワードリセット設定
+PASSWORD_RESET_EXPIRE_MINUTES = 60  # 1時間
+FRONTEND_URL = settings.FRONTEND_URL
+
+# レート制限設定
+RATE_LIMIT_WINDOW = 3600  # 1時間（秒）
+RATE_LIMIT_MAX_REQUESTS = 5  # 1時間に5回まで
+_rate_limit_store: dict[str, list[float]] = defaultdict(list)
 
 
 # ============================================
@@ -494,12 +504,6 @@ def reset_password(
         },
     },
 )
-@router.get("/ping")
-def auth_ping():
-    return {"message": "auth router is alive"}
-
-
-@router.get("/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):
     """現在のログインユーザー情報を取得"""
     return UserResponse(

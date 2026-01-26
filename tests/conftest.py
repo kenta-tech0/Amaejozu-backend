@@ -2,11 +2,16 @@
 テスト用の共通設定・フィクスチャ
 """
 
+import os
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+
+# テスト用の環境変数を設定（app.mainをインポートする前に設定）
+os.environ.setdefault("SECRET_KEY", "test-secret-key-for-testing-only")
+os.environ.setdefault("RESEND_API_KEY", "test-resend-api-key")
 
 from app.main import app
 from app.database import get_db, Base
