@@ -1,7 +1,7 @@
 """add password_hash to users
 
 Revision ID: 90866914a6fc
-Revises: 372441cddb3f
+Revises: de571193d02e
 Create Date: 2026-01-19 08:00:14.183572
 
 """

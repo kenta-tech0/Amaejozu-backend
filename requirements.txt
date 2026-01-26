@@ -4,13 +4,13 @@ uvicorn[standard]==0.34.0
 
 # Database
 SQLAlchemy==2.0.45
+PyMySQL==1.1.0
 mysql-connector-python==9.5.0
 alembic==1.17.2
 
 # Data Validation
-pydantic==2.12.5
+pydantic[email]==2.12.5
 pydantic-settings==2.7.0
-email-validator==2.2.0
 
 # Environment Variables
 python-dotenv==1.0.1
@@ -39,7 +39,6 @@ APScheduler==3.10.4
 azure-identity==1.19.0
 openai==1.59.5
 
-
 # Testing (開発時のみ)
 pytest==8.3.4
 pytest-asyncio==0.25.2
@@ -48,5 +47,5 @@ pytest-asyncio==0.25.2
 ruff==0.9.1
 
 # Email
-resend==2.19.0
+resend
 email-validator
