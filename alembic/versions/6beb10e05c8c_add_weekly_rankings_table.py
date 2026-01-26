@@ -1,7 +1,7 @@
 """add weekly_rankings table
 
 Revision ID: 6beb10e05c8c
-Revises: 7d35e126d195
+Revises: f797a27fa55f
 Create Date: 2026-01-25 11:16:41.383151
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '6beb10e05c8c'
-down_revision: Union[str, None] = '7d35e126d195'
+down_revision: Union[str, None] = 'f797a27fa55f'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

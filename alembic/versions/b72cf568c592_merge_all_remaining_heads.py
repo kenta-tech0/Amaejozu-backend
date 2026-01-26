@@ -1,8 +1,8 @@
-"""merge password_reset and email_unique heads
+"""merge all remaining heads
 
-Revision ID: c7ebe54096c0
-Revises: a1b2c3d4e5f6, b322a2e1d8b0
-Create Date: 2026-01-26 14:42:00.990542
+Revision ID: b72cf568c592
+Revises: fa04fa27bfc5, 6beb10e05c8c
+Create Date: 2026-01-26 15:12:41.730353
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'c7ebe54096c0'
-down_revision: Union[str, None] = ('a1b2c3d4e5f6', 'b322a2e1d8b0')
+revision: str = 'b72cf568c592'
+down_revision: Union[str, None] = ('fa04fa27bfc5', '6beb10e05c8c')
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
