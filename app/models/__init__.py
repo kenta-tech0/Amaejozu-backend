@@ -19,6 +19,7 @@ from .alert import Alert
 from .notification_history import Notification
 from .brand_follow import BrandFollow
 from .user_interest import UserInterest
+from .weekly_ranking import WeeklyRanking
 from .password_reset_token import PasswordResetToken
 
 __all__ = [
@@ -33,5 +34,6 @@ __all__ = [
     "Notification",
     "BrandFollow",
     "UserInterest",
+    "WeeklyRanking",
     "PasswordResetToken",
 ]

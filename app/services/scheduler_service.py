@@ -16,6 +16,7 @@ import logging
 import threading
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -119,6 +120,38 @@ def run_price_update_job():
         api_lock.release()
 
 
+def run_weekly_ranking_job():
+    """
+    週間TOP10ランキング生成ジョブ
+
+    毎週日曜日 0:00 に実行
+    """
+    # ロックを取得（他のジョブとの同時実行を防止）
+    acquired = api_lock.acquire(blocking=False)
+    if not acquired:
+        logger.warning("⏳ 週間ランキング: 他のジョブが実行中のためスキップ")
+        return
+
+    try:
+        from app.services.weekly_ranking_batch import run_weekly_ranking_batch
+
+        logger.info(f"📊 週間TOP10ランキング生成開始: {datetime.now().isoformat()}")
+
+        result = run_weekly_ranking_batch()
+
+        logger.info(
+            f"✅ 週間ランキング生成完了: "
+            f"週={result.get('week_label', 'N/A')}, "
+            f"成功={result.get('success', 0)}, "
+            f"エラー={result.get('errors', 0)}, "
+            f"処理時間={result.get('duration_seconds', 0):.2f}秒"
+        )
+    except Exception as e:
+        logger.error(f"❌ 週間ランキング生成エラー: {str(e)}")
+    finally:
+        api_lock.release()
+
+
 def start_scheduler():
     """スケジューラーを開始"""
     if scheduler.running:
@@ -147,10 +180,21 @@ def start_scheduler():
         max_instances=1,  # 同時に1インスタンスのみ
     )
 
+    # 週間TOP10ランキング生成: 毎週日曜日 0:00
+    scheduler.add_job(
+        run_weekly_ranking_job,
+        trigger=CronTrigger(day_of_week="sun", hour=0, minute=0),
+        id="weekly_ranking",
+        name="週間TOP10ランキング生成",
+        replace_existing=True,
+        max_instances=1,
+    )
+
     scheduler.start()
     logger.info("📅 スケジューラー開始")
     logger.info("   - キャッシュウォームアップ: 6時間ごと")
     logger.info("   - 価格更新バッチ: 6時間ごと（3時間オフセット）")
+    logger.info("   - 週間TOP10ランキング: 毎週日曜日 0:00")
     logger.info("   ※ 楽天APIレート制限（1req/sec）を遵守")
     logger.info("   ※ ジョブは排他制御により同時実行されません")
 
