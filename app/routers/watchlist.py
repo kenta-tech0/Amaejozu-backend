@@ -367,7 +367,7 @@ def add_to_watchlist_with_product(
             name=product.name,
             current_price=product.current_price,
             image_url=product.image_url,
-             product_url=product.product_url,  # ← 追加
+            product_url=product.product_url,
         ),
         target_price=watchlist_item.target_price,
         added_at=watchlist_item.created_at,

@@ -165,11 +165,11 @@ class PriceBatchProcessor:
                         logger.info(f"価格下落通知を送信: {product.name[:30]}...")
                         # 目標価格達成通知も送信
                         send_target_achieved_notifications(
-                        db=self.db,
-                        product_id=product.id,
-                        old_price=change_info["old_price"],
-                        new_price=change_info["new_price"]
-                    )
+                            db=self.db,
+                            product_id=product.id,
+                            old_price=change_info["old_price"],
+                            new_price=change_info["new_price"]
+                        )
                     except Exception as e:
                         logger.error(f"通知送信エラー: {str(e)}")
             
