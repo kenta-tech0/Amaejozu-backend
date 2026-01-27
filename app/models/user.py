@@ -27,7 +27,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     nickname: Mapped[str] = mapped_column(String(100), nullable=False)
-    device_token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    device_token: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
     push_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     email_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(

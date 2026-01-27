@@ -28,6 +28,7 @@ from app.routers.notification import router as notification_router
 from app.routers.watchlist import router as watchlist_router
 from app.routers.user import router as user_router
 from app.routers.ranking import router as ranking_router
+from app.routers.push_notification import router as push_router
 
 # 楽天API連携
 from app.services.rakuten_api import (
@@ -227,7 +228,7 @@ app.include_router(notification_router)
 app.include_router(watchlist_router)
 app.include_router(user_router)  # ユーザー設定API
 app.include_router(ranking_router)  # 週間TOP10ランキングAPI
-
+app.include_router(push_router)
 
 # ============================================
 # 基本エンドポイント

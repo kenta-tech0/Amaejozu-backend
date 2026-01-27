@@ -49,3 +49,4 @@ ruff==0.9.1
 # Email
 resend
 email-validator
+pywebpush==1.14.1
