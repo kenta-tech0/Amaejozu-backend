@@ -125,6 +125,7 @@ def add_to_watchlist(
         user_id=current_user.id,
         product_id=request.product_id,
         target_price=request.target_price,
+        registered_price=product.current_price,  # 登録時の価格を保存
         notify_any_drop=True,
     )
 
@@ -349,6 +350,7 @@ def add_to_watchlist_with_product(
         user_id=current_user.id,
         product_id=product.id,
         target_price=request.target_price,
+        registered_price=product.current_price,  # 登録時の価格を保存
         notify_any_drop=True,
     )
     

@@ -13,7 +13,7 @@ from app.models.product import Product
 from app.models.watchlist import Watchlist
 from app.models.price_history import PriceHistory
 from app.services.rakuten_api import search_products, APIError
-from app.services.notification_service import send_price_drop_notifications
+from app.services.notification_service import send_price_drop_notifications, send_target_achieved_notifications
 
 # ログ設定
 logging.basicConfig(
@@ -163,6 +163,13 @@ class PriceBatchProcessor:
                             new_price=change_info["new_price"]
                         )
                         logger.info(f"価格下落通知を送信: {product.name[:30]}...")
+                        # 目標価格達成通知も送信
+                        send_target_achieved_notifications(
+                        db=self.db,
+                        product_id=product.id,
+                        old_price=change_info["old_price"],
+                        new_price=change_info["new_price"]
+                    )
                     except Exception as e:
                         logger.error(f"通知送信エラー: {str(e)}")
             

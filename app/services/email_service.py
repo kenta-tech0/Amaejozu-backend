@@ -150,7 +150,112 @@ class EmailService:
         """
         
         return self.send_email(to=to, subject=subject, html_content=html_content)
-
-
+    
+    def send_target_price_achieved_notification(
+        self,
+        to: str,
+        product_name: str,
+        registered_price: int,
+        target_price: int,
+        current_price: int,
+        product_url: str,
+        image_url: Optional[str] = None,
+        ai_recommendation: Optional[str] = None
+    ) -> dict:
+        """目標価格達成通知メールを送信"""
+        savings = registered_price - current_price
+        subject = f"🎉【目標達成】{product_name[:30]}... が目標価格を下回りました！"
+        
+        html_content = self._generate_target_achieved_html(
+            product_name=product_name,
+            registered_price=registered_price,
+            target_price=target_price,
+            current_price=current_price,
+            savings=savings,
+            product_url=product_url,
+            image_url=image_url,
+            ai_recommendation=ai_recommendation
+        )
+        
+        return self.send_email(to=to, subject=subject, html_content=html_content)
+    
+    def _generate_target_achieved_html(
+        self,
+        product_name: str,
+        registered_price: int,
+        target_price: int,
+        current_price: int,
+        savings: int,
+        product_url: str,
+        image_url: Optional[str] = None,
+        ai_recommendation: Optional[str] = None
+    ) -> str:
+        """目標価格達成メールのHTMLを生成"""
+        image_tag = f'<img src="{image_url}" alt="{product_name}" style="max-width: 200px; border-radius: 8px;">' if image_url else ""
+        
+        ai_section = ""
+        if ai_recommendation:
+            ai_section = f"""
+            <div style="background: #e8f4fd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3498db;">
+                <h3 style="margin: 0 0 10px 0; color: #2980b9;">💡 AIからのおすすめ</h3>
+                <p style="margin: 0; line-height: 1.6;">{ai_recommendation}</p>
+            </div>
+            """
+        
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+        </head>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f5f5f5;">
+            <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                <h1 style="color: #27ae60; text-align: center; margin-bottom: 30px;">🎉 目標価格達成！</h1>
+                
+                <div style="text-align: center; margin-bottom: 20px;">
+                    {image_tag}
+                </div>
+                
+                <h2 style="color: #333; text-align: center;">{product_name}</h2>
+                
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 8px 0; color: #666;">登録時価格:</td>
+                            <td style="padding: 8px 0; text-align: right; font-size: 16px;">¥{registered_price:,}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; color: #666;">目標価格:</td>
+                            <td style="padding: 8px 0; text-align: right; font-size: 16px;">¥{target_price:,}</td>
+                        </tr>
+                        <tr style="border-top: 2px solid #27ae60;">
+                            <td style="padding: 12px 0; color: #27ae60; font-weight: bold;">現在価格:</td>
+                            <td style="padding: 12px 0; text-align: right; font-size: 24px; color: #27ae60; font-weight: bold;">¥{current_price:,}</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div style="background: #27ae60; color: white; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                    <span style="font-size: 24px; font-weight: bold;">💰 {savings:,}円お得！</span>
+                </div>
+                
+                {ai_section}
+                
+                <div style="text-align: center; margin-top: 30px;">
+                    <a href="{product_url}" style="display: inline-block; background: #e74c3c; color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-size: 18px; font-weight: bold;">
+                        今すぐ購入する
+                    </a>
+                </div>
+                
+                <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+                <p style="color: #999; font-size: 12px; text-align: center;">
+                    このメールは Amaejozu からの自動通知です。<br>
+                    目標価格を達成した商品についてお知らせしています。
+                </p>
+            </div>
+        </body>
+        </html>
+        """
+    
 # シングルトンインスタンス
 email_service = EmailService()

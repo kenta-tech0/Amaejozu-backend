@@ -14,7 +14,11 @@ from app.models.user import User
 from app.models.alert import Alert
 from app.models.notification_history import Notification
 from app.services.email_service import email_service
-
+from app.services.openai_service import (
+    _create_openai_client,
+    AZURE_OPENAI_DEPLOYMENT_NAME,
+    validate_env_variables,
+)
 logger = logging.getLogger(__name__)
 
 # 通知頻度制限（同じ商品への通知間隔）
@@ -188,7 +192,160 @@ class NotificationService:
         ).order_by(
             Notification.sent_at.desc()
         ).limit(limit).all()
+    
+    def generate_ai_recommendation_for_target_achieved(
+        self,
+        product: Product,
+        registered_price: int,
+        target_price: int,
+        current_price: int
+    ) -> Optional[str]:
+        """目標価格達成時のAI推薦文を生成"""
+        try:
+            if not validate_env_variables():
+                logger.warning("Azure OpenAI環境変数が未設定")
+                return None
 
+            savings = registered_price - current_price
+            discount_rate = ((registered_price - current_price) / registered_price) * 100
+
+            prompt = f"""あなたはメンズコスメの専門家です。ユーザーが設定した目標価格を達成した商品について、購入を後押しする推薦文を作成してください。
+
+【商品情報】
+商品名: {product.name}
+登録時価格: ¥{registered_price:,}
+目標価格: ¥{target_price:,}
+現在価格: ¥{current_price:,}
+お得額: ¥{savings:,}（{discount_rate:.1f}%OFF）
+
+【条件】
+- 100〜150文字程度で簡潔に
+- 目標達成のお祝いと購入の後押しを含める
+- 男性向けの親しみやすい表現
+- 絵文字は使用しない
+- 「今が買い時」というメッセージを含める
+
+推薦文:"""
+
+            client = _create_openai_client()
+            response = client.chat.completions.create(
+                model=AZURE_OPENAI_DEPLOYMENT_NAME,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "あなたは親切で専門的なメンズコスメアドバイザーです。",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=300,
+                temperature=0.7,
+            )
+
+            return response.choices[0].message.content.strip()
+
+        except Exception as e:
+            logger.error(f"AI推薦文生成エラー: {str(e)}")
+            return None
+
+    def check_and_send_target_achieved_notifications(
+        self,
+        product_id: str,
+        old_price: int,
+        new_price: int
+    ) -> List[Dict[str, Any]]:
+        """目標価格達成時に通知を送信"""
+        if new_price >= old_price:
+            return []
+        
+        product = self.db.query(Product).filter(Product.id == product_id).first()
+        if not product:
+            return []
+        
+        watchlist_items = self.db.query(Watchlist).filter(
+            Watchlist.product_id == product_id,
+            Watchlist.target_price.isnot(None)
+        ).all()
+        
+        results = []
+        
+        for item in watchlist_items:
+            if new_price > item.target_price:
+                continue
+            
+            if old_price <= item.target_price:
+                logger.debug(f"既に目標達成済み: product={product_id}")
+                continue
+            
+            user = self.db.query(User).filter(User.id == item.user_id).first()
+            if not user or not user.email:
+                continue
+            
+            if self._is_notification_cooldown(user.id, product_id):
+                logger.info(f"通知クールダウン中: user={user.id}, product={product_id}")
+                continue
+            
+            registered_price = item.registered_price or old_price
+            
+            ai_recommendation = self.generate_ai_recommendation_for_target_achieved(
+                product=product,
+                registered_price=registered_price,
+                target_price=item.target_price,
+                current_price=new_price
+            )
+            
+            email_result = email_service.send_target_price_achieved_notification(
+                to=user.email,
+                product_name=product.name,
+                registered_price=registered_price,
+                target_price=item.target_price,
+                current_price=new_price,
+                product_url=product.product_url,
+                image_url=product.image_url,
+                ai_recommendation=ai_recommendation
+            )
+            
+            savings = registered_price - new_price
+            alert = Alert(
+                id=str(uuid.uuid4()),
+                watch_item_id=item.id,
+                alert_type="target_achieved",
+                old_price=old_price,
+                new_price=new_price,
+                drop_rate=((registered_price - new_price) / registered_price) * 100,
+                triggered_at=datetime.now()
+            )
+            self.db.add(alert)
+            self.db.flush()
+            
+            notification = Notification(
+                id=str(uuid.uuid4()),
+                user_id=user.id,
+                alert_id=alert.id,
+                title=f"【目標達成】{product.name[:50]}",
+                message=f"目標価格¥{item.target_price:,}を達成！現在¥{new_price:,}（{savings:,}円お得）",
+                channel="email",
+                is_read=False,
+                sent_at=datetime.now()
+            )
+            self.db.add(notification)
+            self.db.commit()
+            
+            logger.info(
+                f"目標達成通知送信: user={user.email}, product={product.name[:30]}..."
+            )
+            
+            results.append({
+                "user_id": user.id,
+                "user_email": user.email,
+                "product_id": product.id,
+                "registered_price": registered_price,
+                "target_price": item.target_price,
+                "current_price": new_price,
+                "savings": savings,
+                "email_sent": email_result.get("success", False),
+            })
+        
+        return results
 
 def send_price_drop_notifications(
     db: Session,
@@ -199,6 +356,20 @@ def send_price_drop_notifications(
     """価格下落通知を送信するヘルパー関数"""
     service = NotificationService(db)
     return service.check_and_send_price_drop_notifications(
+        product_id=product_id,
+        old_price=old_price,
+        new_price=new_price
+    )
+
+def send_target_achieved_notifications(
+    db: Session,
+    product_id: str,
+    old_price: int,
+    new_price: int
+) -> List[Dict[str, Any]]:
+    """目標価格達成通知を送信するヘルパー関数"""
+    service = NotificationService(db)
+    return service.check_and_send_target_achieved_notifications(
         product_id=product_id,
         old_price=old_price,
         new_price=new_price
