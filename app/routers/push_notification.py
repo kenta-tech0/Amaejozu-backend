@@ -12,7 +12,7 @@ import logging
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
-from app.services.webpush_service import get_vapid_public_key, send_push_notification
+from app.services.webpush_service import get_vapid_public_key, send_push_notification, PushResult
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/push", tags=["push-notifications"])
@@ -96,25 +96,36 @@ def unsubscribe_push(
 def send_test_push(
     request: TestPushRequest,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """テストプッシュ通知を送信"""
     if not current_user.push_enabled or not current_user.device_token:
         raise HTTPException(status_code=400, detail="プッシュ通知が有効になっていません")
-    
+
     try:
         subscription_info = json.loads(current_user.device_token)
-        
-        success = send_push_notification(
+
+        result = send_push_notification(
             subscription_info=subscription_info,
             title=request.title,
             body=request.body,
             url="/watchlist"
         )
-        
-        if success:
+
+        if result == PushResult.SUCCESS:
             return {"success": True, "message": "テスト通知を送信しました"}
+        elif result == PushResult.SUBSCRIPTION_EXPIRED:
+            # 購読が無効になっているため、DBから削除
+            current_user.device_token = None
+            current_user.push_enabled = False
+            db.commit()
+            logger.warning(f"購読期限切れのため削除: user_id={current_user.id}")
+            raise HTTPException(
+                status_code=410,
+                detail="購読が無効になっています。再度プッシュ通知を有効にしてください"
+            )
         else:
             raise HTTPException(status_code=500, detail="通知送信に失敗しました")
-            
+
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="購読情報が無効です")

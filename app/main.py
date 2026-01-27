@@ -228,7 +228,7 @@ app.include_router(notification_router)
 app.include_router(watchlist_router)
 app.include_router(user_router)  # ユーザー設定API
 app.include_router(ranking_router)  # 週間TOP10ランキングAPI
-app.include_router(push_router) 
+app.include_router(push_router)
 
 # ============================================
 # 基本エンドポイント
