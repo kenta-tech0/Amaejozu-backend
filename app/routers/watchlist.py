@@ -140,6 +140,7 @@ def add_to_watchlist(
             name=product.name,
             current_price=product.current_price,
             image_url=product.image_url,
+            product_url=product.product_url,  # 追加
         ),
         target_price=watchlist_item.target_price,
         added_at=watchlist_item.created_at,
@@ -215,6 +216,7 @@ def get_watchlist(
                         name=item.product.name,
                         current_price=item.product.current_price,
                         image_url=item.product.image_url,
+                        product_url=item.product.product_url,  # ← 追加
                     ),
                     target_price=item.target_price,
                     added_at=item.created_at,
@@ -365,6 +367,7 @@ def add_to_watchlist_with_product(
             name=product.name,
             current_price=product.current_price,
             image_url=product.image_url,
+             product_url=product.product_url,  # ← 追加
         ),
         target_price=watchlist_item.target_price,
         added_at=watchlist_item.created_at,

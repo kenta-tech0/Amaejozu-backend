@@ -44,7 +44,7 @@ class ProductInWatchlist(BaseModel):
     name: str
     current_price: int
     image_url: Optional[str] = None
-
+    product_url: Optional[str] = None  # 追加
     model_config = ConfigDict(from_attributes=True)
 
 
