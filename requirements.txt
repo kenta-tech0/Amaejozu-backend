@@ -4,7 +4,7 @@ uvicorn[standard]==0.34.0
 
 # Database
 SQLAlchemy==2.0.45
-PyMySQL==1.1.0
+PyMySQL==1.1.1
 mysql-connector-python==9.5.0
 alembic==1.17.2
 
@@ -17,14 +17,14 @@ python-dotenv==1.0.1
 
 # HTTP Client (外部API呼び出し用)
 httpx==0.28.1
-requests==2.32.3
+requests==2.32.4
 
 # Cache
 cachetools==5.5.0
 
 # Security
 passlib[bcrypt]==1.7.4
-python-multipart==0.0.20
+python-multipart==0.0.22
 pyjwt==2.10.1
 bcrypt==4.1.2
 
