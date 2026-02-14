@@ -48,8 +48,8 @@ class PasswordChangeRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "current_password": "currentpass123",
-                "new_password": "newsecurepass456"
+                "current_password": "**********",
+                "new_password": "**********"
             }
         }
     )
